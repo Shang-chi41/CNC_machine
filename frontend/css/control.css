@@ -52,6 +52,8 @@ body { flex-direction:column; overflow:hidden; height:100vh; }
     overflow: hidden; 
     padding: 0;
     flex: 1;
+    height: 100%;  /* ⭐ THÊM DÒNG NÀY */
+    width: 100%;   /* ⭐ THÊM DÒNG NÀY */
 }
 
 /* Cột trái Auto: Toolpath + controls */
@@ -117,6 +119,7 @@ body { flex-direction:column; overflow:hidden; height:100vh; }
     width: 100%;
     overflow: hidden;
     flex: 1;
+    min-height: 0;
 }
 
 .auto-left {
@@ -134,6 +137,7 @@ body { flex-direction:column; overflow:hidden; height:100vh; }
     min-width: 0;
     display: flex;
     flex-direction: column;
+    height: 100%;
 }
 
 .auto-right {
@@ -141,6 +145,7 @@ body { flex-direction:column; overflow:hidden; height:100vh; }
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
+    height: 100%;
 }
 
 /* ===== CARDS ===== */
