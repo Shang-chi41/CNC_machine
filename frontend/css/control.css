@@ -47,7 +47,12 @@ body { flex-direction:column; overflow:hidden; height:100vh; }
 .manual-iframe { width:100%; height:100%; border:none; }
 
 /* ── AUTO MODE ── */
-#modeAuto { flex-direction:row; overflow:hidden; }
+#modeAuto { 
+    flex-direction: row; 
+    overflow: hidden; 
+    padding: 0;
+    flex: 1;
+}
 
 /* Cột trái Auto: Toolpath + controls */
 .auto-left { flex:1; display:flex; flex-direction:column; padding:10px 12px; gap:10px; overflow-y:auto; border-right:1px solid var(--gray-border); }
@@ -110,7 +115,9 @@ body { flex-direction:column; overflow:hidden; height:100vh; }
     gap: 12px;
     padding: 12px;
     height: 100%;
+    width: 100%;
     overflow: hidden;
+    flex: 1;
 }
 
 .auto-left {
@@ -120,6 +127,7 @@ body { flex-direction:column; overflow:hidden; height:100vh; }
     flex-direction: column;
     gap: 10px;
     overflow-y: auto;
+    padding-right: 4px;
 }
 
 .auto-center {
@@ -386,7 +394,9 @@ body { flex-direction:column; overflow:hidden; height:100vh; }
     background: var(--gray-border);
     border-radius: 2px;
     outline: none;
-    -webkit-appearance: none;
+    -webkit-appearance: none;   /* Chrome, Safari, Edge */
+    -moz-appearance: none;      /* Firefox */
+    appearance: none;           /* Chuẩn mới */
 }
 
 .tp-speed input[type="range"]::-webkit-slider-thumb {
