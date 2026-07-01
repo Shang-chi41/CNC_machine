@@ -23,7 +23,7 @@ body { flex-direction:column; overflow:hidden; height:100vh; }
 .ms-dot.warn{ background:var(--status-warning); }
 .ms-dot.off { background:var(--status-alarm); animation:pulse 0.8s infinite; }
 
-/* ── ESTOP button (cố định góc) ── */
+/* ── ESTOP button ── */
 .estop-fab {
     position:fixed; bottom:80px; left:130px; z-index:999;
     width:64px; height:64px; border-radius:50%;
@@ -56,7 +56,6 @@ body { flex-direction:column; overflow:hidden; height:100vh; }
     width: 100%;
 }
 
-/* ⭐ .auto-layout bao ngoài */
 .auto-layout {
     display: flex;
     gap: 12px;
@@ -68,7 +67,6 @@ body { flex-direction:column; overflow:hidden; height:100vh; }
     min-height: 0;
 }
 
-/* 3 cột */
 .auto-left {
     width: 280px;
     flex-shrink: 0;
@@ -96,7 +94,6 @@ body { flex-direction:column; overflow:hidden; height:100vh; }
     height: 100%;
 }
 
-/* Card bên trong phải chiếm hết không gian */
 .auto-center .card,
 .auto-right .card {
     height: 100%;
@@ -270,7 +267,7 @@ body { flex-direction:column; overflow:hidden; height:100vh; }
     display: block;
 }
 
-/* ⭐ OVERLAY - SÁNG HƠN, RÕ HƠN, ĐẸP HƠN */
+/* ⭐ OVERLAY - GIỐNG control_origin.html */
 .tp-overlay {
     position: absolute;
     inset: 0;
@@ -278,43 +275,39 @@ body { flex-direction:column; overflow:hidden; height:100vh; }
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 12px;
-    color: var(--text-secondary);
+    gap: 10px;
+    color: var(--text-muted);
     pointer-events: none;
-    background: rgba(200, 202, 207, 0.88);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
+    background: rgba(200, 202, 207, 0.6);
     border-radius: 6px;
-    transition: opacity 0.3s ease;
+    z-index: 5;
+    transition: opacity 0.4s ease;
+}
+
+.tp-overlay.visible {
+    opacity: 1;
+}
+
+.tp-overlay.hidden {
+    opacity: 0;
 }
 
 .tp-overlay-icon {
-    font-size: 52px;
-    opacity: 0.5;
-    filter: grayscale(0.2) drop-shadow(0 2px 8px rgba(0,0,0,0.05));
+    font-size: 48px;
+    opacity: 0.4;
 }
 
 .tp-overlay-text {
-    font-size: 18px;
-    font-weight: 700;
-    color: var(--text-primary);
-    font-family: 'Orbitron', monospace;
-    letter-spacing: 1.5px;
-    text-shadow: 0 1px 2px rgba(255,255,255,0.5);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-family: 'Be Vietnam Pro', sans-serif;
 }
 
 .tp-overlay-hint {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--text-muted);
-    font-weight: 400;
-    opacity: 0.75;
-    letter-spacing: 0.3px;
-}
-
-/* ── Khi có G-code thì ẩn overlay ── */
-.toolpath-wrap.has-gcode .tp-overlay {
-    opacity: 0;
-    pointer-events: none;
+    opacity: 0.7;
 }
 
 .tp-controls {
@@ -515,6 +508,4 @@ body { flex-direction:column; overflow:hidden; height:100vh; }
     .auto-left .card { min-width: 100%; }
     .tp-sim-controls { flex-wrap: wrap; }
     .tp-speed { margin-left: 0; width: 100%; }
-    .tp-overlay-text { font-size: 14px; }
-    .tp-overlay-icon { font-size: 36px; }
 }
