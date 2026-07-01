@@ -257,6 +257,7 @@
     .progress-bar { width: 220px; height: 2px; background: rgba(0,0,0,0.1); border-radius: 10px; overflow: hidden; }
     .progress-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #1E5FA8, #e67e22); border-radius: 10px; transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
 
+    /* ===== LOAD BADGE ===== */
     .load-badge {
         margin-top: 8px;
         background: rgba(0,0,0,0.05);
@@ -266,8 +267,9 @@
         display: flex;
         flex-direction: column;
         gap: 6px;
-        transition: border-color 1.2s ease;
+        transition: border-color 0.8s ease;
     }
+    .load-badge.state-idle   { border-color: rgba(154, 156, 159, 0.4); }
     .load-badge.state-light  { border-color: rgba(0, 170, 0, 0.4); }
     .load-badge.state-medium { border-color: rgba(255, 204, 0, 0.5); }
     .load-badge.state-heavy  { border-color: rgba(230, 126, 34, 0.5); }
@@ -275,34 +277,149 @@
 
     .load-badge-top { display: flex; justify-content: space-between; align-items: center; }
     .load-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #1E5FA8; opacity: 0.8; }
-    #loadStatus { font-size: 11px; font-weight: 700; transition: color 1.2s ease; color: #5A5A5A; }
+    #loadStatus { font-size: 11px; font-weight: 700; transition: color 0.8s ease; color: #5A5A5A; }
 
     .load-bar-track { height: 4px; background: rgba(0,0,0,0.08); border-radius: 10px; overflow: hidden; }
-    .load-bar-fill { height: 100%; width: 0%; border-radius: 10px; transition: width 1.2s cubic-bezier(0.4,0,0.2,1), background 1.2s ease; background: #00AA00; }
+    .load-bar-fill { height: 100%; width: 0%; border-radius: 10px; transition: width 0.8s cubic-bezier(0.4,0,0.2,1), background 0.8s ease; background: #5A5A5A; }
 
-    .load-value { text-align: right; font-size: 18px; font-weight: 800; letter-spacing: -0.5px; line-height: 1; transition: color 1.2s ease; color: #5A5A5A; font-family: monospace; }
+    .load-value { text-align: right; font-size: 18px; font-weight: 800; letter-spacing: -0.5px; line-height: 1; transition: color 0.8s ease; color: #5A5A5A; font-family: monospace; }
 
-    .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(6px); z-index: 500; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.25s ease; }
+    /* ===== TOOLPATH ===== */
+    .toolpath-info {
+        position: fixed;
+        bottom: 100px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0,0,0,0.7);
+        backdrop-filter: blur(10px);
+        color: white;
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-size: 10px;
+        z-index: 50;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        pointer-events: none;
+        font-family: monospace;
+    }
+    .toolpath-info.show { opacity: 1; }
+
+    .toast {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%) translateY(-8px);
+        background: rgba(30, 95, 168, 0.9);
+        border: 1px solid #1E5FA8;
+        backdrop-filter: blur(12px);
+        color: white;
+        padding: 8px 20px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+        pointer-events: none;
+        z-index: 300;
+        opacity: 0;
+        transition: opacity 0.25s ease, transform 0.25s ease;
+        letter-spacing: 0.5px;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ===== MODAL ===== */
+    .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.6);
+        backdrop-filter: blur(6px);
+        z-index: 500;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.25s ease;
+    }
     .modal-backdrop.open { opacity: 1; pointer-events: all; }
-    .modal { background: #D0D2D6; border: 1px solid #1E5FA8; border-radius: 20px; box-shadow: 0 32px 64px rgba(0,0,0,0.3); width: 340px; max-width: calc(100vw - 32px); overflow: hidden; transform: translateY(12px) scale(0.97); transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+    .modal {
+        background: #D0D2D6;
+        border: 1px solid #1E5FA8;
+        border-radius: 20px;
+        box-shadow: 0 32px 64px rgba(0,0,0,0.3);
+        width: 340px;
+        max-width: calc(100vw - 32px);
+        overflow: hidden;
+        transform: translateY(12px) scale(0.97);
+        transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    }
     .modal-backdrop.open .modal { transform: translateY(0) scale(1); }
-    .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px 14px; border-bottom: 1px solid rgba(30, 95, 168, 0.15); background: linear-gradient(135deg, rgba(30, 95, 168, 0.06), transparent); }
+    .modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 18px 14px;
+        border-bottom: 1px solid rgba(30, 95, 168, 0.15);
+        background: linear-gradient(135deg, rgba(30, 95, 168, 0.06), transparent);
+    }
     .modal-title { font-size: 13px; font-weight: 700; color: #1E5FA8; letter-spacing: 0.8px; }
-    .modal-close { background: none; border: none; color: #5A5A5A; font-size: 20px; cursor: pointer; width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+    .modal-close {
+        background: none;
+        border: none;
+        color: #5A5A5A;
+        font-size: 20px;
+        cursor: pointer;
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s;
+    }
     .modal-close:hover { background: rgba(30, 95, 168, 0.1); color: #1E5FA8; }
     .modal-body { padding: 14px 16px; }
     .save-input-row { display: flex; gap: 8px; margin-bottom: 14px; }
-    .save-name-input { flex: 1; background: #FFFFFF; border: 1px solid rgba(30, 95, 168, 0.25); border-radius: 10px; padding: 8px 12px; font-size: 12px; color: #1A1A1A; font-family: inherit; outline: none; transition: border-color 0.2s; }
+    .save-name-input {
+        flex: 1;
+        background: #FFFFFF;
+        border: 1px solid rgba(30, 95, 168, 0.25);
+        border-radius: 10px;
+        padding: 8px 12px;
+        font-size: 12px;
+        color: #1A1A1A;
+        font-family: inherit;
+        outline: none;
+        transition: border-color 0.2s;
+    }
     .save-name-input:focus { border-color: #1E5FA8; }
     .save-name-input::placeholder { color: #9A9C9F; }
-    .btn-save-new { background: rgba(30, 95, 168, 0.12); border: 1px solid rgba(30, 95, 168, 0.3); border-radius: 10px; color: #1E5FA8; font-size: 11px; font-weight: 700; padding: 8px 14px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+    .btn-save-new {
+        background: rgba(30, 95, 168, 0.12);
+        border: 1px solid rgba(30, 95, 168, 0.3);
+        border-radius: 10px;
+        color: #1E5FA8;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 8px 14px;
+        cursor: pointer;
+        transition: all 0.15s;
+        white-space: nowrap;
+    }
     .btn-save-new:hover { background: rgba(30, 95, 168, 0.22); transform: translateY(-1px); }
     .btn-save-new:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
     .slots-label { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: #1E5FA8; margin-bottom: 8px; }
     .slots-list { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; padding-right: 2px; }
     .slots-list::-webkit-scrollbar { width: 2px; }
     .slots-list::-webkit-scrollbar-thumb { background: rgba(30, 95, 168, 0.3); border-radius: 4px; }
-    .slot-item { background: #FFFFFF; border: 1px solid rgba(30, 95, 168, 0.12); border-radius: 12px; padding: 10px 12px; display: flex; align-items: center; gap: 10px; transition: border-color 0.2s; }
+    .slot-item {
+        background: #FFFFFF;
+        border: 1px solid rgba(30, 95, 168, 0.12);
+        border-radius: 12px;
+        padding: 10px 12px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        transition: border-color 0.2s;
+    }
     .slot-item:hover { border-color: rgba(30, 95, 168, 0.3); background: rgba(30, 95, 168, 0.02); }
     .slot-icon { font-size: 20px; flex-shrink: 0; width: 32px; height: 32px; background: rgba(30, 95, 168, 0.08); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
     .slot-info { flex: 1; min-width: 0; }
@@ -314,9 +431,6 @@
     .btn-slot-del:hover { background: rgba(204, 0, 0, 0.12); border-color: #CC0000; color: #CC0000; }
     .slots-empty { text-align: center; padding: 24px 0; color: #9A9C9F; font-size: 11px; }
     .slots-limit { font-size: 9.5px; color: #5A5A5A; text-align: right; margin-top: 10px; }
-
-    .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-8px); background: rgba(30, 95, 168, 0.9); border: 1px solid #1E5FA8; backdrop-filter: blur(12px); color: white; padding: 8px 20px; border-radius: 20px; font-size: 11px; font-weight: 600; pointer-events: none; z-index: 300; opacity: 0; transition: opacity 0.25s ease, transform 0.25s ease; letter-spacing: 0.5px; }
-    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 </style>
 </head>
 <body>
@@ -409,7 +523,7 @@
         </div>
 
         <!-- Tải trọng -->
-        <div class="load-badge" id="loadBadge">
+        <div class="load-badge state-idle" id="loadBadge">
             <div class="load-badge-top">
                 <span class="load-label">⚡ Tải trọng</span>
                 <span id="loadStatus">⏳ Đang chờ dữ liệu...</span>
@@ -435,6 +549,9 @@
         </div>
     </div>
 </div>
+
+<!-- Toolpath info -->
+<div class="toolpath-info" id="toolpathInfo">🛤️ Đang vẽ toolpath...</div>
 
 <!-- Save/Load Modal -->
 <div class="modal-backdrop" id="saveModal">
@@ -480,6 +597,9 @@ const AUTO_LOAD_FILE = 'VIRTUAL_MILLING_CNC.stp';
 const AUTO_LOAD_PATH = '/static/models/' + AUTO_LOAD_FILE;
 document.getElementById('autoFileName').textContent = AUTO_LOAD_FILE;
 
+// ========== IDLE COLOR (Xám ISA-101) ==========
+const IDLE_COLOR = 0x9A9C9F;
+
 // ========== ĐỒNG BỘ MÀU NỀN VỚI THEME ISA-101 ==========
 function applyThemeToViewer() {
     const saved = localStorage.getItem('cnc_theme');
@@ -496,7 +616,6 @@ function applyThemeToViewer() {
     }
 }
 
-// Lắng nghe theme thay đổi
 window.addEventListener('storage', (event) => {
     if (event.key === 'cnc_theme' && event.newValue) {
         try {
@@ -563,9 +682,7 @@ scene.add(gridHelper);
 // ===== STATE =====
 let mainGroup = null, allMeshes = [], wireframe = false;
 
-// ===== TOOLPATH (đường chạy dao) — độc lập hoàn toàn với model máy =====
-// Chỉ dùng cho control.html (xem G-code preview). monitor.html KHÔNG gửi
-// message loại này nên sẽ không bao giờ kích hoạt — 2 trang độc lập.
+// ===== TOOLPATH (đường chạy dao) =====
 let toolpathGroup = null;
 let currentRotation = new THREE.Euler(0, 0, 0);
 let currentScale = 1, dragMode = true;
@@ -709,10 +826,15 @@ document.body.addEventListener('drop', e => { e.preventDefault(); const f=e.data
 let occt = null;
 async function loadOCCT() {
     return new Promise((resolve, reject) => {
-        if (window.occtimportjs) { window.occtimportjs({ locateFile: p=>`https://cdn.jsdelivr.net/npm/occt-import-js@0.0.18/dist/${p}` }).then(resolve).catch(reject); return; }
+        if (window.occtimportjs) {
+            window.occtimportjs({ locateFile: p=>`https://cdn.jsdelivr.net/npm/occt-import-js@0.0.18/dist/${p}` })
+                .then(resolve).catch(reject);
+            return;
+        }
         const s = document.createElement('script');
         s.src = 'https://cdn.jsdelivr.net/npm/occt-import-js@0.0.18/dist/occt-import-js.js';
-        s.onload = () => window.occtimportjs({ locateFile: p=>`https://cdn.jsdelivr.net/npm/occt-import-js@0.0.18/dist/${p}` }).then(resolve).catch(reject);
+        s.onload = () => window.occtimportjs({ locateFile: p=>`https://cdn.jsdelivr.net/npm/occt-import-js@0.0.18/dist/${p}` })
+            .then(resolve).catch(reject);
         s.onerror = () => reject(new Error('Không tải được OCCT'));
         document.head.appendChild(s);
     });
@@ -745,12 +867,18 @@ async function processFile(file, saveToDb = false) {
         allMeshes = []; mainGroup = new THREE.Group();
         currentRotation.set(0,0,0); currentScale = 1;
         document.getElementById('scaleSlider').value = 1; applyScale();
+        
         result.meshes.forEach((m, i) => {
             const g = new THREE.BufferGeometry();
             g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(m.attributes.position.array), 3));
             if (m.index?.array) g.setIndex(new THREE.BufferAttribute(new Uint32Array(m.index.array), 1));
             g.computeVertexNormals();
-            const mat = new THREE.MeshStandardMaterial({ color: colors[i%colors.length], roughness:0.3, metalness:0.7 });
+            // Mặc định tô màu IDLE (xám)
+            const mat = new THREE.MeshStandardMaterial({ 
+                color: IDLE_COLOR, 
+                roughness: 0.3, 
+                metalness: 0.7 
+            });
             const mesh = new THREE.Mesh(g, mat);
             mainGroup.add(mesh); allMeshes.push(mesh);
         });
@@ -831,6 +959,7 @@ function rebuildFromData(data) {
     document.getElementById('status').textContent=`✅ ${allMeshes.length} parts`;
     applyRotation(); applyScale();
     if(wireframe)allMeshes.forEach(m=>m.material.wireframe=true);
+    snapshotOriginalColors();
 }
 
 function formatDate(ts){const d=new Date(ts);return d.toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'});}
@@ -864,27 +993,34 @@ document.getElementById('btnSaveSlot').onclick=saveCurrentSlot;
 document.getElementById('saveNameInput').addEventListener('keydown',e=>{if(e.key==='Enter')saveCurrentSlot();});
 
 // =============================================
-// TÍNH NĂNG ĐỔI MÀU THEO TẢI TRỌNG
+// TÍNH NĂNG ĐỔI MÀU THEO TẢI TRỌNG (ISA-101)
 // =============================================
 let currentLoad = 0;
 let _originalColors = [];
 let _targetMeshColor = null;
 let _currentMeshColors = [];
-const MESH_LERP_SPEED = 0.018;
+const MESH_LERP_SPEED = 0.02;
 
 function snapshotOriginalColors() {
     _originalColors = allMeshes.map(m => m.material.color.getHex());
     _currentMeshColors.length = 0;
     allMeshes.forEach(m => _currentMeshColors.push(m.material.color.clone()));
     _targetMeshColor = null;
+    // Set idle màu xám
+    allMeshes.forEach(m => m.material.color.setHex(IDLE_COLOR));
 }
 
 function updateColorByLoad(loadPercent) {
     currentLoad = loadPercent;
 
+    // Nếu không có dữ liệu hoặc load <= 0 → IDLE (màu xám)
     if (!loadPercent || loadPercent <= 0) {
         _targetMeshColor = null;
-        document.getElementById('loadBadge').className = 'load-badge';
+        allMeshes.forEach((m, i) => {
+            _currentMeshColors[i] = new THREE.Color(IDLE_COLOR);
+            m.material.color.setHex(IDLE_COLOR);
+        });
+        document.getElementById('loadBadge').className = 'load-badge state-idle';
         document.getElementById('loadStatus').textContent = '⏳ Đang chờ dữ liệu...';
         document.getElementById('loadStatus').style.color = '#5A5A5A';
         document.getElementById('loadValue').textContent = '— %';
@@ -907,6 +1043,7 @@ function updateColorByLoad(loadPercent) {
 
     _targetMeshColor = new THREE.Color(hex);
 
+    // Điều chỉnh ánh sáng khi quá tải
     if (loadPercent >= 90) { ambientLight.intensity = 1.4; mainLight.intensity = 3.0; }
     else { ambientLight.intensity = 0.9; mainLight.intensity = 2.0; }
 
@@ -921,13 +1058,15 @@ function updateColorByLoad(loadPercent) {
     fill.style.background = cssColor;
 }
 
-// ===== Parse G-code đơn giản (G0/G1 linear, G2/G3 xấp xỉ thành đoạn thẳng) =====
+// =============================================
+// G-CODE TOOLPATH RENDER
+// =============================================
 function parseGcodeToPoints(text) {
     const points = [];
     let x = 0, y = 0, z = 0;
     const lines = text.split(/\r?\n/);
     for (const raw of lines) {
-        const line = raw.split(';')[0].split('(')[0].trim(); // bỏ comment
+        const line = raw.split(';')[0].split('(')[0].trim();
         if (!line) continue;
         const gMatch = line.match(/G0*([0-3])(?!\d)/i);
         const xMatch = line.match(/X(-?\d*\.?\d+)/i);
@@ -944,17 +1083,32 @@ function parseGcodeToPoints(text) {
 }
 
 function renderToolpath(gcodeText) {
-    if (toolpathGroup) { scene.remove(toolpathGroup); toolpathGroup = null; }
+    // Xóa toolpath cũ
+    if (toolpathGroup) { 
+        scene.remove(toolpathGroup); 
+        toolpathGroup.traverse(child => {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) child.material.dispose();
+        });
+        toolpathGroup = null;
+    }
+
     const pts = parseGcodeToPoints(gcodeText);
-    if (pts.length < 2) { showToast('⚠️ G-code không có đường chạy hợp lệ'); return; }
+    if (pts.length < 2) { 
+        showToast('⚠️ G-code không có đường chạy hợp lệ'); 
+        return; 
+    }
 
     toolpathGroup = new THREE.Group();
 
-    // Vẽ từng đoạn, tô màu khác nhau: xanh dương = cắt (G1/G2/G3), xám nhạt đứt nét = chạy nhanh (G0)
+    // Đếm số điểm để hiển thị thông tin
+    let totalPoints = 0;
+
+    // Vẽ từng đoạn
     for (let i = 1; i < pts.length; i++) {
         const p0 = pts[i - 1], p1 = pts[i];
         const geom = new THREE.BufferGeometry().setFromPoints([
-            new THREE.Vector3(p0.x, p0.z, -p0.y), // đổi trục: G-code Z lên = Three.js Y lên
+            new THREE.Vector3(p0.x, p0.z, -p0.y),
             new THREE.Vector3(p1.x, p1.z, -p1.y),
         ]);
         const mat = p1.rapid
@@ -963,11 +1117,13 @@ function renderToolpath(gcodeText) {
         const line = new THREE.Line(geom, mat);
         if (p1.rapid) line.computeLineDistances();
         toolpathGroup.add(line);
+        totalPoints++;
     }
 
-    // Điểm bắt đầu (xanh lá) và kết thúc (đỏ) để dễ định hướng
-    const startGeo = new THREE.SphereGeometry(0.8, 8, 8);
-    const startMesh = new THREE.Mesh(startGeo, new THREE.MeshBasicMaterial({ color: 0x00AA00 }));
+    // Điểm bắt đầu (xanh lá) và kết thúc (đỏ)
+    const startGeo = new THREE.SphereGeometry(1.5, 8, 8);
+    const startMat = new THREE.MeshBasicMaterial({ color: 0x00AA00 });
+    const startMesh = new THREE.Mesh(startGeo, startMat);
     startMesh.position.set(pts[0].x, pts[0].z, -pts[0].y);
     toolpathGroup.add(startMesh);
 
@@ -977,30 +1133,57 @@ function renderToolpath(gcodeText) {
     toolpathGroup.add(endMesh);
 
     scene.add(toolpathGroup);
+
+    // Hiển thị thông tin
+    const infoEl = document.getElementById('toolpathInfo');
+    infoEl.textContent = `🛤️ Đã vẽ toolpath (${pts.length} điểm, ${totalPoints} đoạn)`;
+    infoEl.classList.add('show');
+    setTimeout(() => infoEl.classList.remove('show'), 4000);
+
     showToast(`🛠️ Đã vẽ toolpath (${pts.length} điểm)`);
 
+    // Gửi thông báo về parent
     if (window.parent !== window) {
         window.parent.postMessage({ type: 'toolpath_rendered', points: pts.length }, '*');
     }
 }
 
 function clearToolpath() {
-    if (toolpathGroup) { scene.remove(toolpathGroup); toolpathGroup = null; }
+    if (toolpathGroup) {
+        scene.remove(toolpathGroup);
+        toolpathGroup.traverse(child => {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) child.material.dispose();
+        });
+        toolpathGroup = null;
+    }
+    const infoEl = document.getElementById('toolpathInfo');
+    infoEl.textContent = '🗑 Đã xóa toolpath';
+    infoEl.classList.add('show');
+    setTimeout(() => infoEl.classList.remove('show'), 2000);
 }
 
-// Nhận dữ liệu tải từ bên ngoài (postMessage từ monitor.html)
+// =============================================
+// NHẬN DỮ LIỆU TỪ PARENT WINDOW
+// =============================================
 window.addEventListener('message', ev => {
+    // update_load - từ monitor hoặc control
     if (ev.data?.type === 'update_load') {
         const load = parseFloat(ev.data.load);
         if (!isNaN(load)) updateColorByLoad(load);
         return;
     }
+    // render_toolpath - từ control (G-code)
     if (ev.data?.type === 'render_toolpath') {
-        // Dùng bởi control.html: { type: 'render_toolpath', gcode: '<nội dung G-code text>' }
         if (typeof ev.data.gcode === 'string') renderToolpath(ev.data.gcode);
         return;
     }
-    if (ev.data?.type === 'clear_toolpath') { clearToolpath(); return; }
+    // clear_toolpath - từ control
+    if (ev.data?.type === 'clear_toolpath') {
+        clearToolpath();
+        return;
+    }
+    // cnc_control - điều khiển viewer
     if (ev.data?.type !== 'cnc_control') return;
     switch (ev.data.action) {
         case 'reset': document.getElementById('resetPos').click(); document.getElementById('resetRot').click(); break;
@@ -1010,17 +1193,20 @@ window.addEventListener('message', ev => {
     }
 });
 
-// ===== ANIMATION =====
+// =============================================
+// ANIMATION LOOP
+// =============================================
 function animate(time) {
     requestAnimationFrame(animate);
     orbitControls.update();
     applyDragMomentum();
 
+    // Lerp màu sắc
     if (allMeshes.length && _currentMeshColors.length === allMeshes.length) {
         allMeshes.forEach((mesh, i) => {
             const target = _targetMeshColor
                 ? _targetMeshColor
-                : (_originalColors[i] !== undefined ? new THREE.Color(_originalColors[i]) : null);
+                : (_originalColors[i] !== undefined ? new THREE.Color(_originalColors[i]) : new THREE.Color(IDLE_COLOR));
             if (!target) return;
             _currentMeshColors[i].lerp(target, MESH_LERP_SPEED);
             mesh.material.color.copy(_currentMeshColors[i]);
@@ -1031,10 +1217,16 @@ function animate(time) {
 }
 animate(0);
 
-const ro=new ResizeObserver(()=>{camera.aspect=window.innerWidth/window.innerHeight;camera.updateProjectionMatrix();renderer.setSize(window.innerWidth,window.innerHeight);});
+const ro = new ResizeObserver(() => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
 ro.observe(document.body);
 
-// ===== INIT — TỰ ĐỘNG TẢI FILE =====
+// =============================================
+// INIT — TỰ ĐỘNG TẢI FILE
+// =============================================
 setDragMode(true);
 applyThemeToViewer();
 
@@ -1079,12 +1271,20 @@ async function init() {
 
 init();
 
-// ========== THÔNG BÁO SẴN SÀNG CHO PARENT WINDOW ==========
+// =============================================
+// THÔNG BÁO SẴN SÀNG CHO PARENT
+// =============================================
 window.addEventListener('load', () => {
     if (window.parent !== window) {
         window.parent.postMessage({ type: 'viewer_ready' }, '*');
     }
 });
+
+// Export functions để parent có thể gọi
+window.renderToolpath = renderToolpath;
+window.clearToolpath = clearToolpath;
+window.updateColorByLoad = updateColorByLoad;
+
 </script>
 </body>
 </html>
