@@ -76,91 +76,180 @@
     </div>
 
     <!-- ══ MANUAL MODE ══ -->
-    <div class="mode-content active" id="modeManual">
-        <iframe class="manual-iframe" src="http://localhost" id="fluidncFrame"
-            title="FluidNC WebUI"
-            onerror="this.src='about:blank'"
-            allow="autoplay; fullscreen; serial"></iframe>
+    <div class="mode-content active" id="modeManual" style="flex-direction:column;overflow-y:auto;padding:12px;gap:0;">
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap;">
+            <div style="font-family:'Orbitron',monospace;font-size:11px;color:var(--cyan-portal);letter-spacing:1px;white-space:nowrap;">
+                🔌 KẾT NỐI <span id="connectionStatus" class="status-badge disconnected" style="margin-left:6px;padding:2px 8px;border-radius:10px;font-size:10px;background:rgba(204,0,0,0.15);color:var(--status-alarm);">Chưa kết nối</span>
+            </div>
+            <input type="text" id="deviceUrl" placeholder="Nhập IP hoặc URL... (VD: 192.168.1.100:8080)"
+                style="flex:1;min-width:200px;padding:8px 10px;background:var(--gray-sidebar);border:1px solid var(--gray-border);border-radius:6px;color:var(--text-primary);font-size:12px;font-family:monospace;"
+                onkeydown="if(event.key==='Enter') connectToDevice()">
+            <button onclick="connectToDevice()" style="background:var(--cyan-portal);border:none;border-radius:6px;padding:8px 16px;color:#fff;cursor:pointer;font-size:12px;font-weight:600;">🔗 KẾT NỐI</button>
+            <button onclick="openConnectionInNewTab()" title="Mở tab mới" style="background:var(--status-active);border:none;border-radius:6px;padding:8px 12px;color:white;cursor:pointer;font-size:13px;">🌐</button>
+            <button onclick="closeConnection()" title="Đóng kết nối" style="background:rgba(204,0,0,0.15);border:1px solid var(--status-alarm);border-radius:6px;padding:8px 12px;color:var(--status-alarm);cursor:pointer;font-size:13px;">✖</button>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center;">
+            <span style="font-size:11px;color:var(--text-muted);">Nhanh:</span>
+            <button class="q-btn" onclick="quickConnect('http://192.168.4.1')" style="font-size:10px;padding:4px 10px;">FluidNC (192.168.4.1)</button>
+            <button class="q-btn" onclick="quickConnect('http://localhost:8080')" style="font-size:10px;padding:4px 10px;">localhost:8080</button>
+        </div>
+
+        <div style="margin-bottom:10px;">
+            <div style="font-size:11px;color:var(--cyan-portal);margin-bottom:6px;">📌 ĐÃ LƯU:</div>
+            <div id="savedUrlsList" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+        </div>
+
+        <div style="position:relative;border:1px solid var(--gray-border);border-radius:8px;overflow:hidden;background:var(--gray-bg);height:calc(100vh - 340px);min-height:320px;">
+            <div id="manualEmpty" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:var(--text-muted);">
+                <div style="font-size:48px;opacity:.5;">🖥️</div>
+                <div style="font-size:13px;text-align:center;">Nhập địa chỉ IP phía trên để tải giao diện điều khiển FluidNC</div>
+            </div>
+            <div id="manualLoading" style="position:absolute;inset:0;background:rgba(200,202,207,0.9);display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px;z-index:5;">
+                <div style="width:36px;height:36px;border:3px solid var(--gray-border);border-top-color:var(--cyan-portal);border-radius:50%;animation:spin .8s linear infinite;"></div>
+                <div style="font-size:12px;color:var(--text-secondary);">ĐANG KẾT NỐI...</div>
+            </div>
+            <div id="manualError" style="position:absolute;inset:0;background:rgba(200,202,207,0.95);display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px;z-index:5;">
+                <div style="font-size:40px;">⚠️</div>
+                <div id="manualErrMsg" style="font-size:13px;color:var(--status-alarm);text-align:center;padding:0 20px;"></div>
+                <div style="display:flex;gap:10px;margin-top:4px;">
+                    <button onclick="retryManual()" style="background:transparent;border:1px solid var(--cyan-portal);color:var(--cyan-portal);padding:8px 18px;border-radius:6px;cursor:pointer;">↺ THỬ LẠI</button>
+                    <button onclick="openConnectionInNewTab()" style="background:transparent;border:1px solid var(--status-warning);color:var(--status-warning);padding:8px 18px;border-radius:6px;cursor:pointer;">🔗 TAB MỚI</button>
+                </div>
+            </div>
+            <iframe id="fluidncFrame" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals"
+                style="width:100%;height:100%;border:none;display:none;"
+                onload="onManualFrameLoad()" onerror="onManualFrameError()"></iframe>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;font-size:11px;color:var(--text-muted);margin-top:6px;">
+            <div id="manualStatusDot" style="width:6px;height:6px;border-radius:50%;background:var(--text-muted);"></div>
+            <span id="manualStatusText">Chưa kết nối</span>
+            <span id="manualStatusUrl" style="color:var(--text-muted);font-size:10px;font-family:monospace;"></span>
+        </div>
+        <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
     </div>
 
     <!-- ══ AUTO MODE ══ -->
+    <!-- ══ AUTO MODE ══ -->
     <div class="mode-content" id="modeAuto">
-        <div class="auto-left">
+        <div class="auto-layout">
 
-            <!-- Machine status mini -->
-            <div class="mach-status">
-                <span class="ms-label">State:</span><span class="ms-val" id="autoState">—</span>
-                <span class="ms-label">X:</span><span class="ms-val" id="autoX">—</span>
-                <span class="ms-label">Y:</span><span class="ms-val" id="autoY">—</span>
-                <span class="ms-label">Z:</span><span class="ms-val" id="autoZ">—</span>
-                <span class="ms-label">I:</span><span class="ms-val" id="autoI">—</span><span class="ms-label">A</span>
-            </div>
+            <!-- CỘT TRÁI -->
+            <div class="auto-left">
 
-            <!-- Toolpath 3D -->
-            <div class="toolpath-wrap">
-                <div class="toolpath-header">
-                    <span>🎮 TOOLPATH 3D PREVIEW</span>
-                    <span style="font-size:9px;color:var(--text-muted);" id="toolpathStatus">Chờ G-code...</span>
+                <!-- 1. Upload phôi -->
+                <div class="card">
+                    <div class="card-title">📁 UPLOAD PHÔI</div>
+                    <div id="uploadArea" class="upload-area" onclick="document.getElementById('fileInput').click()">
+                        📂 Click / kéo thả<br><small>STL, PNG, JPG, STEP, DXF</small>
+                    </div>
+                    <input type="file" id="fileInput" style="display:none" accept=".stl,.png,.jpg,.jpeg,.step,.dxf,.stp">
+                    <div id="fileInfo" class="file-info" style="display:none;">
+                        <strong>📄</strong> <span id="fileName"></span><br>
+                        <strong>📏</strong> <span id="fileSize"></span>
+                        <img id="previewImage" class="preview-img" style="display:none;">
+                    </div>
                 </div>
-                <iframe id="toolpathFrame" src="/static/cnc_viewer.html"
-                    class="toolpath-canvas" allow="autoplay"></iframe>
-            </div>
 
-            <!-- G-Code list + actions -->
-            <div class="gcode-section">
-                <div class="sec-title">
-                    <span>📄 G-CODE QUEUE</span>
-                    <button style="font-size:9px;padding:2px 8px;background:transparent;border:1px solid var(--gray-border);border-radius:3px;color:var(--text-muted);cursor:pointer;" onclick="fetchGcodeList()">↺ Làm mới</button>
+                <!-- 2. G-code Preview (nhận từ AI) -->
+                <div class="card">
+                    <div class="card-title">📝 G-CODE PREVIEW</div>
+                    <div id="gcodePreview" class="gcode-preview">⏳ Chưa có G-Code</div>
+                    <div class="btn-group">
+                        <button id="downloadBtn" class="btn btn-success" onclick="downloadGCode()" disabled>💾 .NC</button>
+                        <button class="btn btn-danger" onclick="clearGCode()">🗑 XÓA</button>
+                        <button class="btn btn-primary" onclick="sendGcodeToQueue()">📤 GỬI QUEUE</button>
+                    </div>
                 </div>
-                <div class="gcode-list" id="gcodeList">
-                    <div class="gc-empty">🔄 Đang tải...</div>
+
+                <!-- 3. Nạp file G-code -->
+                <div class="card">
+                    <div class="card-title">📂 NẠP FILE G-CODE</div>
+                    <div id="gcUploadArea" class="upload-area" onclick="document.getElementById('gcFileInput').click()" style="border-color:rgba(0,170,0,0.4);">
+                        📄 Click / kéo thả<br><small>.nc · .gcode · .txt · .tap</small>
+                    </div>
+                    <input type="file" id="gcFileInput" style="display:none" accept=".nc,.gcode,.txt,.tap,.cnc,.ngc">
+                    <div id="gcFileInfo" style="display:none;margin-top:6px;padding:5px;background:rgba(0,170,0,0.1);border-radius:4px;font-size:10px;border-left:2px solid var(--status-active);">
+                        <span id="gcFileName" style="color:var(--status-active);"></span><br>
+                        <span id="gcLineCount" style="color:var(--text-muted);"></span>
+                    </div>
+                    <button id="askAiBtn" onclick="askAiAboutGCode()" style="display:none;margin-top:6px;width:100%;background:var(--cyan-glow);border:1px solid var(--cyan-portal);color:var(--cyan-portal);padding:7px;border-radius:4px;cursor:pointer;font-size:10px;">💬 HỎI AI VỀ G-CODE NÀY</button>
+                </div>
+
+                <!-- 4. Quick Actions -->
+                <div class="card">
+                    <div class="card-title">⚡ QUICK ACTIONS</div>
+                    <div class="quick-actions">
+                        <button class="q-btn home" onclick="sendCmd('home')">🏠 HOME</button>
+                        <button class="q-btn stop" onclick="sendCmd('stop')">⏸ HOLD</button>
+                        <button class="q-btn resume" onclick="sendCmd('resume')">▶ RESUME</button>
+                        <button class="q-btn unlock" onclick="sendCmd('unlock')">🔓 UNLOCK</button>
+                    </div>
+                </div>
+
+                <!-- 5. Machine Status -->
+                <div class="mach-status">
+                    <span class="ms-label">State:</span><span class="ms-val" id="autoState">—</span>
+                    <span class="ms-label">X:</span><span class="ms-val" id="autoX">—</span>
+                    <span class="ms-label">Y:</span><span class="ms-val" id="autoY">—</span>
+                    <span class="ms-label">Z:</span><span class="ms-val" id="autoZ">—</span>
+                </div>
+
+                <div class="msg-bar" id="ctrlMsg">✅ Sẵn sàng</div>
+            </div>
+
+            <!-- CỘT GIỮA: 3D Toolpath -->
+            <div class="auto-center">
+                <div class="card" style="height:100%;display:flex;flex-direction:column;">
+                    <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
+                        <span>🛤️ ĐƯỜNG CHẠY DAO 3D</span>
+                        <div class="tp-controls">
+                            <button class="tp-btn active" id="btnTpGrid" onclick="tp3dToggleGrid()">GRID</button>
+                            <button class="tp-btn active" id="btnTpAxes" onclick="tp3dToggleAxes()">AXES</button>
+                            <button class="tp-btn active" id="btnTpBox" onclick="tp3dToggleBox()">BOX</button>
+                            <button class="tp-btn" onclick="tp3dResetView()">⟳ RESET</button>
+                        </div>
+                    </div>
+                    <div class="toolpath-wrap">
+                        <canvas id="toolpath3D"></canvas>
+                        <div id="tp3dOverlay" class="tp-overlay">
+                            <div class="tp-overlay-icon">🛤️</div>
+                            <div class="tp-overlay-text">Chưa có G-Code</div>
+                            <div class="tp-overlay-hint">Chat AI hoặc nạp file .nc để hiển thị đường chạy dao</div>
+                        </div>
+                    </div>
+                    <div class="tp-info">
+                        <span id="tp3dInfo">Chưa có G-Code</span>
+                        <span>X:<span id="tp3dX" style="color:#e74c3c;">0</span> Y:<span id="tp3dY" style="color:#2ecc71;">0</span> Z:<span id="tp3dZ" style="color:#3498db;">0</span> mm</span>
+                    </div>
+                    <div class="tp-progress"><div class="tp-progress-fill" id="tp3dFill"></div></div>
+                    <div class="tp-sim-controls">
+                        <button class="btn btn-success" onclick="tp3dSimulate()">▶ MÔ PHỎNG</button>
+                        <button class="btn btn-danger" onclick="tp3dStop()">⏹ DỪNG</button>
+                        <button class="btn btn-warning" onclick="tp3dResetSim()">⟳ RESET</button>
+                        <div class="tp-speed">
+                            <span>⚡ <span id="simSpeedValue">1.0x</span></span>
+                            <input type="range" id="simSpeedSlider" min="0.2" max="3" step="0.02" value="1.0">
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Quick actions -->
-            <div class="sec-title" style="font-family:'Orbitron',monospace;font-size:10px;font-weight:600;color:var(--cyan-portal);letter-spacing:1px;">⚡ QUICK ACTIONS</div>
-            <div class="quick-actions">
-                <button class="q-btn home"   onclick="sendCmd('home')">🏠 HOME</button>
-                <button class="q-btn stop"   onclick="sendCmd('stop')">⏸ HOLD</button>
-                <button class="q-btn resume" onclick="sendCmd('resume')">▶ RESUME</button>
-                <button class="q-btn unlock" onclick="sendCmd('unlock')">🔓 UNLOCK</button>
-            </div>
-
-            <!-- Jog controls -->
-            <div class="sec-title" style="font-family:'Orbitron',monospace;font-size:10px;font-weight:600;color:var(--cyan-portal);letter-spacing:1px;">
-                🎮 JOG
-                <div style="display:flex;align-items:center;gap:6px;">
-                    <select class="jog-select" id="jogDist">
-                        <option value="0.1">0.1mm</option>
-                        <option value="1" selected>1mm</option>
-                        <option value="5">5mm</option>
-                        <option value="10">10mm</option>
-                    </select>
-                    <select class="jog-select" id="jogFeed">
-                        <option value="100">F100</option>
-                        <option value="300" selected>F300</option>
-                        <option value="500">F500</option>
-                    </select>
+            <!-- CỘT PHẢI: G-code Queue -->
+            <div class="auto-right">
+                <div class="card" style="height:100%;display:flex;flex-direction:column;">
+                    <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
+                        <span>📄 G-CODE QUEUE</span>
+                        <button class="refresh-btn" onclick="fetchGcodeList()">↺</button>
+                    </div>
+                    <div class="gcode-list" id="gcodeList">
+                        <div class="gc-empty">🔄 Đang tải...</div>
+                    </div>
                 </div>
             </div>
-            <div class="jog-grid">
-                <div class="jog-label">X</div>
-                <button class="jog-btn" onclick="jog('X',-1)">← X-</button>
-                <button class="jog-btn" onclick="jog('X',+1)">X+ →</button>
-                <div></div>
-                <div class="jog-label">Y</div>
-                <button class="jog-btn" onclick="jog('Y',-1)">↓ Y-</button>
-                <button class="jog-btn" onclick="jog('Y',+1)">Y+ ↑</button>
-                <div></div>
-                <div class="jog-label">Z</div>
-                <button class="jog-btn z" onclick="jog('Z',-1)">↓ Z-</button>
-                <button class="jog-btn z" onclick="jog('Z',+1)">Z+ ↑</button>
-                <div></div>
-            </div>
 
-            <div class="msg-bar" id="ctrlMsg">✅ Sẵn sàng</div>
-        </div>
-    </div>
+        </div><!-- .auto-layout -->
+    </div><!-- #modeAuto -->
 
 </main>
 
