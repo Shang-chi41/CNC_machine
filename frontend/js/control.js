@@ -13,10 +13,8 @@ import { auth } from '/static/js/auth.js';
 import { theme } from '/static/js/theme.js';
 import { api } from '/static/js/api.js';
 import { initAiChat, initSidebarStatus, initUserBar, initLogout } from '/static/js/ai_chat.js';
-// control.js - phần sử dụng DigitalTwinViewer
-
 import { DigitalTwinViewer } from '/static/js/digital_twin.js';
-
+theme.init()
 // Khởi tạo viewer với iframe #toolpathFrame
 const twin = new DigitalTwinViewer('toolpathFrame');
 
