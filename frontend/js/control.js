@@ -15,10 +15,40 @@ import { api } from '/static/js/api.js';
 import { initAiChat, initSidebarStatus, initUserBar, initLogout } from '/static/js/ai_chat.js';
 import { DigitalTwinViewer } from '/static/js/digital_twin.js';
 theme.init();
+
+// ⭐ 2. HELPER FUNCTIONS (phải khai báo TRƯỚC khi dùng)
 function _el(id) { return document.getElementById(id); }
-function _showCtrlMsg(msg, color) { const el = document.getElementById('ctrlMsg'); if (el) { el.textContent = msg; el.style.color = color || 'var(--text-secondary)'; } }
-// Khởi tạo viewer với iframe #toolpathFrame
+function _showCtrlMsg(msg, color) { 
+    const el = document.getElementById('ctrlMsg'); 
+    if (el) { 
+        el.textContent = msg; 
+        el.style.color = color || 'var(--text-secondary)'; 
+    } 
+}
+
+// ⭐ 3. DIGITAL TWIN VIEWER
 const twin = new DigitalTwinViewer('toolpathFrame');
+twin.onToolpathRendered((points) => {
+    const el = document.getElementById('toolpathStatus');
+    if (el) el.textContent = `✅ Đã vẽ toolpath (${points} điểm)`;
+});
+
+// ⭐ 4. DOMContentLoaded
+document.addEventListener('DOMContentLoaded', () => {
+    if (!auth.guard()) return;
+
+    initUserBar(auth);
+    initLogout(auth);
+    initSidebarStatus();
+    initAiChat({ enableUpload: true, enableGcodeActions: true, onAfterChat: fetchGcodeList });
+
+    fetchMachineStatus(); 
+    setInterval(fetchMachineStatus, 3000);
+    fetchGcodeList();
+    initFluidncConnection();
+
+    if (window.location.hash === '#ai') setMode('auto');
+});
 
 // Đăng ký callback khi toolpath được vẽ xong
 twin.onToolpathRendered((points) => {
