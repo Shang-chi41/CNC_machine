@@ -1,6 +1,7 @@
 /**
  * js/monitor.js
  * Logic cho trang Monitor: realtime status, 3D viewer, alarm
+ * KHÔNG CÓ CHART - chart chỉ dùng cho History
  */
 
 import { auth } from '/static/js/auth.js';
@@ -178,9 +179,9 @@ function _renderAlarms(data) {
         const resolveBtn = `<button class="tbl-btn" onclick="resolveAlarm('${a._id}',this)">✓</button>`;
         return `<tr>
             <td>${badge}</td>
-            <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" 
+            <td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" 
                 title="${a.message || ''}">${a.message || '—'}</td>
-            <td style="font-size:9px;white-space:nowrap;">${ts}</td>
+            <td style="font-size:8px;white-space:nowrap;">${ts}</td>
             <td>${resolveBtn}</td>
         </tr>`;
     }).join('');
