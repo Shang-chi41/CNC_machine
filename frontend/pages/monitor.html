@@ -66,13 +66,22 @@
             <span class="st-label" id="stateLabel">---</span>
         </div>
         <span class="st-sep">|</span>
-        <span class="st-val">X: <b id="posX">—</b></span>
-        <span class="st-val">Y: <b id="posY">—</b></span>
-        <span class="st-val">Z: <b id="posZ">—</b></span>
+        <div class="st-group">
+            <span class="st-val">X: <b id="posX">—</b> mm</span>
+            <span class="st-val">Y: <b id="posY">—</b> mm</span>
+            <span class="st-val">Z: <b id="posZ">—</b> mm</span>
+        </div>
         <span class="st-sep">|</span>
-        <span class="st-val">⚡ <b id="curVal">—</b> A</span>
-        <span class="st-val">F: <b id="feedVal">—</b> mm/min</span>
-        <span class="st-val">S: <b id="spindleVal">—</b> rpm</span>
+        <div class="st-group">
+            <span class="st-val">⚡ Speed: <b id="speedVal">—</b> mm/s</span>
+            <span class="st-val">🔩 Torque: <b id="torqueVal">—</b> N·m</span>
+            <span class="st-val">⚡ Current: <b id="curVal">—</b> A</span>
+        </div>
+        <span class="st-sep">|</span>
+        <div class="st-group">
+            <span class="st-val">📊 Feed: <b id="feedVal">—</b> mm/min</span>
+            <span class="st-val">🔄 Spindle: <b id="spindleVal">—</b> rpm</span>
+        </div>
         <span class="st-sep">|</span>
         <span class="st-badge" id="toolBadge">—</span>
         <span class="st-badge" id="matBadge">—</span>
