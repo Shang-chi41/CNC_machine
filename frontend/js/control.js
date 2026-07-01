@@ -16,22 +16,21 @@ theme.init();
 
 // ⭐ 2. HELPER FUNCTIONS
 function _el(id) { return document.getElementById(id); }
-function _showCtrlMsg(msg, color) { 
-    const el = document.getElementById('ctrlMsg'); 
-    if (el) { 
-        el.textContent = msg; 
-        el.style.color = color || 'var(--text-secondary)'; 
-    } 
+
+function _showCtrlMsg(msg, color) {
+    const el = document.getElementById('ctrlMsg');
+    if (el) {
+        el.textContent = msg;
+        el.style.color = color || 'var(--text-secondary)';
+    }
 }
 
-// ⭐ 3. DIGITAL TWIN VIEWER
-const twin = new DigitalTwinViewer('toolpathFrame');
-twin.onToolpathRendered((points) => {
-    const el = document.getElementById('toolpathStatus');
-    if (el) el.textContent = `✅ Đã vẽ toolpath (${points} điểm)`;
-});
+// ⭐ 3. BIẾN TOÀN CỤC
+let currentGCode = '';
+let _mode = 'manual';
+let _twin = null;
 
-// ⭐ 4. DOMContentLoaded
+// ⭐ 4. DOMContentLoaded - KHỞI TẠO TWIN TẠI ĐÂY
 document.addEventListener('DOMContentLoaded', () => {
     if (!auth.guard()) return;
 
@@ -40,7 +39,17 @@ document.addEventListener('DOMContentLoaded', () => {
     initSidebarStatus();
     initAiChat({ enableUpload: true, enableGcodeActions: true, onAfterChat: fetchGcodeList });
 
-    fetchMachineStatus(); 
+    // ⭐ KHỞI TẠO TWIN TRONG DOMContentLoaded
+    _twin = new DigitalTwinViewer('toolpathFrame');
+    _twin.onToolpathRendered((points) => {
+        const el = document.getElementById('toolpathStatus');
+        if (el) el.textContent = `✅ Đã vẽ toolpath (${points} điểm)`;
+    });
+    _twin.onReady(() => {
+        console.log('✅ 3D Viewer ready');
+    });
+
+    fetchMachineStatus();
     setInterval(fetchMachineStatus, 3000);
     fetchGcodeList();
     initFluidncConnection();
@@ -48,8 +57,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.location.hash === '#ai') setMode('auto');
 });
 
+// ⭐ HÀM LẤY TWIN
+function getTwin() {
+    return _twin;
+}
+
 // ── FluidNC WebUI ──────────────────────────────────────────────────────────
-const KEY_FLUIDNC_LAST  = 'cnc_fluidnc_url';
+const KEY_FLUIDNC_LAST = 'cnc_fluidnc_url';
 const KEY_FLUIDNC_SAVED = 'cnc_fluidnc_saved_urls';
 
 function _fluidncSavedUrls() {
@@ -106,34 +120,35 @@ function _fluidncNormalize(raw) {
 
 function _fluidncSetStatus(state, url = '') {
     const badge = document.getElementById('connectionStatus');
-    const dot   = document.getElementById('manualStatusDot');
-    const text  = document.getElementById('manualStatusText');
+    const dot = document.getElementById('manualStatusDot');
+    const text = document.getElementById('manualStatusText');
     const urlEl = document.getElementById('manualStatusUrl');
 
     const map = {
-        connecting:   { label: 'Đang kết nối...', color: 'var(--status-warning)' },
-        connected:    { label: 'Đã kết nối',      color: 'var(--status-active)'  },
-        error:        { label: 'Lỗi kết nối',     color: 'var(--status-alarm)'   },
-        disconnected: { label: 'Chưa kết nối',    color: 'var(--text-muted)'     },
+        connecting: { label: 'Đang kết nối...', color: 'var(--status-warning)' },
+        connected: { label: 'Đã kết nối', color: 'var(--status-active)' },
+        error: { label: 'Lỗi kết nối', color: 'var(--status-alarm)' },
+        disconnected: { label: 'Chưa kết nối', color: 'var(--text-muted)' },
     };
     const s = map[state] || map.disconnected;
 
-    if (badge) { badge.textContent = s.label; badge.style.color = s.color; }
-    if (dot)   dot.style.background = s.color;
-    if (text)  text.textContent = s.label;
+    if (badge) { badge.textContent = s.label;
+        badge.style.color = s.color; }
+    if (dot) dot.style.background = s.color;
+    if (text) text.textContent = s.label;
     if (urlEl) urlEl.textContent = url;
 }
 
 function _fluidncLoad(url) {
-    const frame   = document.getElementById('fluidncFrame');
-    const empty   = document.getElementById('manualEmpty');
+    const frame = document.getElementById('fluidncFrame');
+    const empty = document.getElementById('manualEmpty');
     const loading = document.getElementById('manualLoading');
-    const error   = document.getElementById('manualError');
+    const error = document.getElementById('manualError');
 
-    empty.style.display   = 'none';
-    error.style.display   = 'none';
+    empty.style.display = 'none';
+    error.style.display = 'none';
     loading.style.display = 'flex';
-    frame.style.display   = 'none';
+    frame.style.display = 'none';
 
     _fluidncSetStatus('connecting', url);
     frame.src = url;
@@ -194,7 +209,6 @@ window.onManualFrameError = function () {
 };
 
 // ── Mode toggle ───────────────────────────────────────────────────────────
-let _mode = 'manual';
 window.setMode = function (mode) {
     _mode = mode;
     document.getElementById('modeManual').classList.toggle('active', mode === 'manual');
@@ -223,7 +237,9 @@ async function fetchMachineStatus() {
         _el('autoZ').textContent = (pos.z || 0).toFixed(2);
         _el('autoI').textContent = curA.toFixed(2);
 
-        twin.updateLoad(curA * 20);
+        // ⭐ DÙNG getTwin() THAY VÌ twin TRỰC TIẾP
+        const twin = getTwin();
+        if (twin) twin.updateLoad(curA * 20);
     } catch (_) {}
 }
 
@@ -260,16 +276,32 @@ function _renderGcodeList(data) {
 }
 
 async function confirmGcode(id, btn) {
-    btn.disabled = true; btn.textContent = '...';
-    try { await api.post(`/api/gcode/${id}/confirm`); _showCtrlMsg('✅ Đã confirm G-code', 'var(--status-active)'); fetchGcodeList(); }
-    catch (e) { btn.disabled = false; btn.textContent = '✓ Confirm'; _showCtrlMsg('❌ ' + e.message, 'var(--status-alarm)'); }
+    btn.disabled = true;
+    btn.textContent = '...';
+    try {
+        await api.post(`/api/gcode/${id}/confirm`);
+        _showCtrlMsg('✅ Đã confirm G-code', 'var(--status-active)');
+        fetchGcodeList();
+    } catch (e) {
+        btn.disabled = false;
+        btn.textContent = '✓ Confirm';
+        _showCtrlMsg('❌ ' + e.message, 'var(--status-alarm)');
+    }
 }
 
 async function runGcode(id, btn) {
     if (!confirm('Xác nhận chạy G-code này?')) return;
-    btn.disabled = true; btn.textContent = '⏳...';
-    try { await api.post(`/api/control/run/${id}`); _showCtrlMsg('▶️ Đang chạy G-code...', 'var(--status-active)'); fetchGcodeList(); }
-    catch (e) { btn.disabled = false; btn.textContent = '▶ Run'; _showCtrlMsg('❌ ' + e.message, 'var(--status-alarm)'); }
+    btn.disabled = true;
+    btn.textContent = '⏳...';
+    try {
+        await api.post(`/api/control/run/${id}`);
+        _showCtrlMsg('▶️ Đang chạy G-code...', 'var(--status-active)');
+        fetchGcodeList();
+    } catch (e) {
+        btn.disabled = false;
+        btn.textContent = '▶ Run';
+        _showCtrlMsg('❌ ' + e.message, 'var(--status-alarm)');
+    }
 }
 
 async function previewGcode(id) {
@@ -278,7 +310,9 @@ async function previewGcode(id) {
         const doc = await api.get(`/api/gcode/${id}`);
         const content = doc?.gcode || '';
         if (!content) throw new Error('G-code rỗng');
-        twin.renderToolpath(content);
+
+        const twin = getTwin();
+        if (twin) twin.renderToolpath(content);
         document.getElementById('toolpathStatus').textContent = `Đang vẽ toolpath ${id.slice(-6)}...`;
     } catch (e) {
         document.getElementById('toolpathStatus').textContent = `❌ ${e.message}`;
@@ -297,7 +331,9 @@ window.sendCmd = async function (action) {
         await api.post(`/api/control/${action}`);
         const msgs = { home: '🏠 Lệnh Home đã gửi', stop: '⏸ Feed Hold đã gửi', resume: '▶️ Resume đã gửi', unlock: '🔓 Unlock đã gửi' };
         _showCtrlMsg(msgs[action] || '✅ OK', 'var(--status-active)');
-    } catch (e) { _showCtrlMsg('❌ ' + e.message, 'var(--status-alarm)'); }
+    } catch (e) {
+        _showCtrlMsg('❌ ' + e.message, 'var(--status-alarm)');
+    }
 };
 
 // ── ESTOP ─────────────────────────────────────────────────────────────────
@@ -308,7 +344,9 @@ window.sendEstop = async function () {
     try {
         await api.post('/api/control/estop');
         _showCtrlMsg('🛑 ESTOP đã gửi — Máy đang dừng', 'var(--status-alarm)');
-    } catch (e) { _showCtrlMsg('❌ ' + e.message, 'var(--status-alarm)'); }
+    } catch (e) {
+        _showCtrlMsg('❌ ' + e.message, 'var(--status-alarm)');
+    }
     btn.style.animation = '';
 };
 
@@ -319,12 +357,14 @@ window.jog = async function (axis, dir) {
     try {
         await api.post('/api/control/jog', { axis, distance: dist, feed });
         _showCtrlMsg(`🎮 Jog ${axis}${dist > 0 ? '+' : ''}${dist}mm F${feed}`, 'var(--status-active)');
-    } catch (e) { _showCtrlMsg('❌ ' + e.message, 'var(--status-alarm)'); }
+    } catch (e) {
+        _showCtrlMsg('❌ ' + e.message, 'var(--status-alarm)');
+    }
 };
 
 // ===== G-CODE từ AI =====
-let currentGCode = '';
 
+// Lưu G-code từ AI vào preview
 function setGCodeFromAI(gcode) {
     currentGCode = gcode;
     const preview = document.getElementById('gcodePreview');
@@ -333,30 +373,38 @@ function setGCodeFromAI(gcode) {
     }
     const btn = document.getElementById('downloadBtn');
     if (btn) btn.disabled = false;
-    twin.renderToolpath(gcode);
+
+    const twin = getTwin();
+    if (twin) twin.renderToolpath(gcode);
 }
 
+// Download G-code
 function downloadGCode() {
     if (!currentGCode) { alert('Chưa có G-Code'); return; }
     const a = document.createElement('a');
-    a.download = `cnc_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.nc`;
+    a.download = `cnc_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.nc`;
     a.href = URL.createObjectURL(new Blob([currentGCode], { type: 'text/plain' }));
     a.click();
 }
 
+// Clear G-code
 function clearGCode() {
     currentGCode = '';
     const preview = document.getElementById('gcodePreview');
     if (preview) preview.innerHTML = '⏳ Chưa có G-Code';
     const btn = document.getElementById('downloadBtn');
     if (btn) btn.disabled = true;
-    twin.clearToolpath();
+
+    const twin = getTwin();
+    if (twin) twin.clearToolpath();
+
     const info = document.getElementById('tp3dInfo');
     const overlay = document.getElementById('tp3dOverlay');
     if (info) info.textContent = 'Chưa có G-Code';
     if (overlay) overlay.style.display = 'flex';
 }
 
+// Gửi G-code lên queue
 async function sendGcodeToQueue() {
     if (!currentGCode) { alert('Chưa có G-Code để gửi'); return; }
     try {
@@ -416,7 +464,8 @@ function loadGCodeFile(file) {
         currentGCode = text;
         const preview = document.getElementById('gcodePreview');
         if (preview) {
-            preview.innerHTML = `<pre style="margin:0;white-space:pre-wrap;font-size:10px;">${text.slice(0,800)}${text.length>800?'\n...(còn nữa)':''}</pre>`;
+            preview.innerHTML =
+                `<pre style="margin:0;white-space:pre-wrap;font-size:10px;">${text.slice(0, 800)}${text.length > 800 ? '\n...(còn nữa)' : ''}</pre>`;
         }
         const btn = document.getElementById('downloadBtn');
         if (btn) btn.disabled = false;
@@ -427,16 +476,18 @@ function loadGCodeFile(file) {
         const askAiBtn = document.getElementById('askAiBtn');
 
         if (gcFileName) gcFileName.textContent = `📄 ${file.name}`;
-        if (gcLineCount) gcLineCount.textContent = `${text.split('\n').length} dòng · ${(file.size/1024).toFixed(1)} KB`;
+        if (gcLineCount) gcLineCount.textContent = `${text.split('\n').length} dòng · ${(file.size / 1024).toFixed(1)} KB`;
         if (gcFileInfo) gcFileInfo.style.display = 'block';
         if (askAiBtn) askAiBtn.style.display = 'block';
 
-        twin.renderToolpath(text);
+        const twin = getTwin();
+        if (twin) twin.renderToolpath(text);
         _showCtrlMsg(`✅ Đã nạp ${file.name}`, 'var(--status-active)');
     };
     r.readAsText(file);
 }
 
+// Hỏi AI về G-code
 function askAiAboutGCode() {
     if (!currentGCode) return;
     const input = document.getElementById('aiIn');
@@ -446,30 +497,37 @@ function askAiAboutGCode() {
     }
 }
 
-// Stub functions
+// Stub functions cho toolpath 3D
 function tp3dToggleGrid() { toggleTpBtn('btnTpGrid'); }
+
 function tp3dToggleAxes() { toggleTpBtn('btnTpAxes'); }
-function tp3dToggleBox()  { toggleTpBtn('btnTpBox'); }
-function tp3dResetView()  {}
-function tp3dSimulate()   {}
-function tp3dStop()       {}
-function tp3dResetSim()   {}
-function toggleTpBtn(id)  {
+
+function tp3dToggleBox() { toggleTpBtn('btnTpBox'); }
+
+function tp3dResetView() {}
+
+function tp3dSimulate() {}
+
+function tp3dStop() {}
+
+function tp3dResetSim() {}
+
+function toggleTpBtn(id) {
     const btn = document.getElementById(id);
     if (btn) btn.classList.toggle('active');
 }
 
 // ===== EXPORT =====
-window.setGCodeFromAI   = setGCodeFromAI;
-window.downloadGCode    = downloadGCode;
-window.clearGCode       = clearGCode;
+window.setGCodeFromAI = setGCodeFromAI;
+window.downloadGCode = downloadGCode;
+window.clearGCode = clearGCode;
 window.sendGcodeToQueue = sendGcodeToQueue;
-window.loadGCodeFile    = loadGCodeFile;
-window.askAiAboutGCode  = askAiAboutGCode;
-window.tp3dToggleGrid   = tp3dToggleGrid;
-window.tp3dToggleAxes   = tp3dToggleAxes;
-window.tp3dToggleBox    = tp3dToggleBox;
-window.tp3dResetView    = tp3dResetView;
-window.tp3dSimulate     = tp3dSimulate;
-window.tp3dStop         = tp3dStop;
-window.tp3dResetSim     = tp3dResetSim;
+window.loadGCodeFile = loadGCodeFile;
+window.askAiAboutGCode = askAiAboutGCode;
+window.tp3dToggleGrid = tp3dToggleGrid;
+window.tp3dToggleAxes = tp3dToggleAxes;
+window.tp3dToggleBox = tp3dToggleBox;
+window.tp3dResetView = tp3dResetView;
+window.tp3dSimulate = tp3dSimulate;
+window.tp3dStop = tp3dStop;
+window.tp3dResetSim = tp3dResetSim;
