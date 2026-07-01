@@ -12,10 +12,9 @@ import { createLineChart, pushChart, pushRolling, clearCharts, AXIS_COLORS } fro
 import { initAiChat, initSidebarStatus, initUserBar, initLogout } from '/static/js/ai_chat.js';
 import { DigitalTwinViewer } from '/static/js/digital_twin.js';
 
-// ⭐ 1. KHỞI TẠO THEME
 theme.init();
 
-// ⭐ 2. BIẾN TOÀN CỤC
+// ── BIẾN TOÀN CỤC ──
 let _minutes = 60,
     _source = 'physical',
     _almFilter = 'all',
@@ -27,7 +26,7 @@ let _twin = null;
 // ── Charts ──
 let cPos, cVel, cMom, cCur;
 
-// ⭐ 3. DOMContentLoaded - KHỞI TẠO TWIN TẠI ĐÂY
+// ── DOMContentLoaded ──
 document.addEventListener('DOMContentLoaded', () => {
     if (!auth.guard()) return;
 
@@ -36,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initSidebarStatus();
     initAiChat();
 
-    // ⭐ KHỞI TẠO TWIN TRONG DOMContentLoaded
+    // Khởi tạo 3D Viewer
     _twin = new DigitalTwinViewer('cncFrame');
     _twin.onReady(() => {
         console.log('✅ 3D Viewer ready on Monitor');
@@ -52,15 +51,14 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchMachineCtx();
 });
 
-// ⭐ HÀM LẤY TWIN
+// ── Helper ──
+function _el(id) { return document.getElementById(id); }
+
 function getTwin() {
     return _twin;
 }
 
-// ── Helper ────────────────────────────────────────────────────────────────
-function _el(id) { return document.getElementById(id); }
-
-// ── Charts ────────────────────────────────────────────────────────────────
+// ── Charts ──
 function initCharts() {
     cPos = createLineChart('chartPos', [
         { label: 'X', color: AXIS_COLORS.x },
@@ -82,7 +80,7 @@ function initCharts() {
     ]);
 }
 
-// ── Fetch REALTIME latest (moi 2s) ───────────────────────────────────────
+// ── Fetch REALTIME latest (moi 2s) ──
 async function fetchLatest() {
     try {
         const d = await api.get('/api/monitor/sensor/latest');
@@ -104,13 +102,21 @@ async function fetchLatest() {
         const state = d.status || 'unknown';
         const ts = d.timestamp || d.mqtt_timestamp || '';
 
+        // ⭐ Tính Speed và Torque
+        const speed = Math.sqrt(vx * vx + vy * vy + vz * vz);
+        const torque = Math.sqrt(mx * mx + my * my + mz * mz);
+
+        // ⭐ Cập nhật UI status bar
         _el('posX').textContent = px.toFixed(2);
         _el('posY').textContent = py.toFixed(2);
         _el('posZ').textContent = pz.toFixed(2);
+        _el('speedVal').textContent = speed.toFixed(1);
+        _el('torqueVal').textContent = torque.toFixed(2);
         _el('curVal').textContent = cur.toFixed(2);
         _el('feedVal').textContent = feed.toFixed(0);
         _el('spindleVal').textContent = spindle.toFixed(0);
 
+        // Trạng thái máy
         const dot = document.getElementById('stateDot');
         const lbl = document.getElementById('stateLabel');
         if (dot && lbl) {
@@ -121,6 +127,7 @@ async function fetchLatest() {
                 state === 'Hold' ? 'var(--status-warning)' : 'var(--text-primary)';
         }
 
+        // Cập nhật chart vals
         _el('cvX').textContent = px.toFixed(2);
         _el('cvY').textContent = py.toFixed(2);
         _el('cvZ').textContent = pz.toFixed(2);
@@ -132,12 +139,14 @@ async function fetchLatest() {
         _el('cvMz').textContent = mz.toFixed(2);
         _el('cvI').textContent = cur.toFixed(2);
 
+        // Realtime chart
         if (cCur) {
             const t = ts ? new Date(ts).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit',
                 second: '2-digit' }) : '';
             pushRolling(cCur, t, [cur], 60);
         }
 
+        // Current range
         const rng = _currentRange;
         if (rng.current_max_A) {
             const ratio = cur / rng.current_max_A;
@@ -152,7 +161,7 @@ async function fetchLatest() {
 
         if (ts) try { _el('lastUpdateTime').textContent = new Date(ts).toLocaleTimeString('vi-VN'); } catch (_) {}
 
-        // ⭐ GỬI LOAD LÊN 3D VIEWER QUA TWIN
+        // ⭐ Gửi load lên 3D Viewer
         if (Math.abs(cur - _lastLoad) > 0.3) {
             _lastLoad = cur;
             const maxA = _currentRange.current_max_A || 5;
@@ -168,7 +177,7 @@ async function fetchLatest() {
     } catch (_) {}
 }
 
-// ── Fetch HISTORY chart (moi 30s) ────────────────────────────────────────
+// ── Fetch HISTORY chart (moi 30s) ──
 async function fetchChart() {
     try {
         const physArr = (_source === 'both' || _source === 'physical') ? await api.get(
@@ -203,7 +212,7 @@ async function fetchChart() {
     } catch (e) { _el('chartInfo').textContent = '❌ ' + e.message; }
 }
 
-// ── Machine context (Neo4j via /api/settings/machine) ────────────────────
+// ── Machine context ──
 async function fetchMachineCtx() {
     try {
         const d = await api.get('/api/settings/machine');
@@ -215,7 +224,7 @@ async function fetchMachineCtx() {
     } catch (_) { _currentRange = {}; }
 }
 
-// ── Alarms ────────────────────────────────────────────────────────────────
+// ── Alarms ──
 async function fetchAlarms() {
     try {
         _allAlarms = await api.get('/api/monitor/alarms', { limit: 100, resolved: false });
@@ -260,7 +269,7 @@ async function resolveAlarm(id, btn) {
         btn.textContent = '✓'; }
 }
 
-// ── Window functions ──────────────────────────────────────────────────────
+// ── Window functions ──
 window.setTime = function (min, btn) {
     _minutes = min;
     document.querySelectorAll('.ctrl-row:first-of-type .ctrl-btn').forEach(b => b.classList.remove('active'));
