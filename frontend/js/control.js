@@ -13,33 +13,51 @@ import { auth } from '/static/js/auth.js';
 import { theme } from '/static/js/theme.js';
 import { api } from '/static/js/api.js';
 import { initAiChat, initSidebarStatus, initUserBar, initLogout } from '/static/js/ai_chat.js';
+// control.js - phần sử dụng DigitalTwinViewer
+
 import { DigitalTwinViewer } from '/static/js/digital_twin.js';
 
-theme.init();
-
-// Lop trung gian noi chuyen voi iframe toolpath (cnc_viewer.html) — doc lap
-// hoan toan voi trang Monitor (xem digital_twin.js de biet giao thuc dung chung).
+// Khởi tạo viewer với iframe #toolpathFrame
 const twin = new DigitalTwinViewer('toolpathFrame');
+
+// Đăng ký callback khi toolpath được vẽ xong
 twin.onToolpathRendered((points) => {
     const el = document.getElementById('toolpathStatus');
     if (el) el.textContent = `✅ Đã vẽ toolpath (${points} điểm)`;
 });
 
-document.addEventListener('DOMContentLoaded', () => {
-    if (!auth.guard()) return;
+// Hàm preview G-code
+async function previewGcode(id) {
+    document.getElementById('toolpathStatus').textContent = `Đang load G-code ${id.slice(-6)}...`;
+    try {
+        const doc = await api.get(`/api/gcode/${id}`);
+        const content = doc?.gcode || '';
+        if (!content) throw new Error('G-code rỗng');
+        
+        // Gửi lên viewer để vẽ
+        twin.renderToolpath(content);
+        document.getElementById('toolpathStatus').textContent = `Đang vẽ toolpath ${id.slice(-6)}...`;
+    } catch (e) {
+        document.getElementById('toolpathStatus').textContent = `❌ ${e.message}`;
+    }
+}
 
-    initUserBar(auth);
-    initLogout(auth);
-    initSidebarStatus();
-    initAiChat({ enableUpload: true, enableGcodeActions: true, onAfterChat: fetchGcodeList });
+// Khi clear G-code
+function clearGCode() {
+    // ... code clear
+    twin.clearToolpath();
+}
 
-    fetchMachineStatus(); setInterval(fetchMachineStatus, 3000);
-    fetchGcodeList();
+// Khi nhận G-code từ AI
+function setGCodeFromAI(gcode) {
+    // ... code set preview
+    twin.renderToolpath(gcode);
+}
 
-    // Neu co hash #ai -> chuyen sang auto mode
-    if (window.location.hash === '#ai') setMode('auto');
+// Khi trang unload, dọn dẹp
+window.addEventListener('beforeunload', () => {
+    twin.destroy();
 });
-
 // ── Mode toggle ───────────────────────────────────────────────────────────
 let _mode = 'manual';
 window.setMode = function (mode) {
