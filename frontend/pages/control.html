@@ -197,7 +197,7 @@
                 <div class="msg-bar" id="ctrlMsg">✅ Sẵn sàng</div>
             </div>
 
-            <!-- CỘT GIỮA: 3D Toolpath (Three.js trực tiếp) -->
+            <!-- CỘT GIỮA: 3D Toolpath -->
             <div class="auto-center">
                 <div class="card" style="height:100%;display:flex;flex-direction:column;">
                     <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
@@ -211,10 +211,14 @@
                     </div>
                     <div class="toolpath-wrap" id="toolpathWrap">
                         <canvas id="toolpath3D"></canvas>
-                        <div id="tp3dOverlay" class="tp-overlay">
+                        <!-- Overlay -->
+                        <div id="tp3dOverlay" class="tp-overlay visible">
                             <div class="tp-overlay-icon">🛤️</div>
                             <div class="tp-overlay-text">Chưa có G-Code</div>
                             <div class="tp-overlay-hint">Chat AI hoặc nạp file .nc để hiển thị đường chạy dao</div>
+                            <div class="tp-overlay-hint" style="font-size:10px;color:var(--text-muted);opacity:0.5;margin-top:4px;">
+                                Không gian: X:±200, Y:±150, Z:±50 mm
+                            </div>
                         </div>
                     </div>
                     <div class="tp-info">
