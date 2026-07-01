@@ -12,36 +12,23 @@ import { createLineChart, pushChart, pushRolling, clearCharts, AXIS_COLORS } fro
 import { initAiChat, initSidebarStatus, initUserBar, initLogout } from '/static/js/ai_chat.js';
 import { DigitalTwinViewer } from '/static/js/digital_twin.js';
 
-// Khởi tạo viewer với iframe #cncFrame
 const twin = new DigitalTwinViewer('cncFrame');
 
-// Đăng ký callback khi viewer sẵn sàng
-twin.onReady(() => {
-    console.log('3D Viewer ready');
-    // Gửi load hiện tại ngay khi ready
-    fetchAndSendLoad();
-});
+theme.init();
 
-// Hàm gửi load lên viewer
-function sendLoadToViewer(loadPercent) {
-    twin.updateLoad(loadPercent);
-}
+document.addEventListener('DOMContentLoaded', () => {
+    if (!auth.guard()) return;
 
-// Trong fetchRealtimeStatus, gọi sendLoadToViewer
-async function fetchRealtimeStatus() {
-    try {
-        // ... lấy data
-        const loadPercent = Math.min((current / 5) * 100, 100);
-        sendLoadToViewer(loadPercent);
-        updateLoadStatus(loadPercent);
-    } catch (e) {
-        console.error('Fetch realtime error:', e);
-    }
-}
+    initUserBar(auth);
+    initLogout(auth);
+    initSidebarStatus();
+    initAiChat();
 
-// Khi trang unload, dọn dẹp
-window.addEventListener('beforeunload', () => {
-    twin.destroy();
+    initCharts();
+    fetchLatest();      setInterval(fetchLatest, 2000);
+    fetchChart();        setInterval(fetchChart, 30000);
+    fetchAlarms();        setInterval(fetchAlarms, 10000);
+    fetchMachineCtx();
 });
 
 // ── State ─────────────────────────────────────────────────────────────────
