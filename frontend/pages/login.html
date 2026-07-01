@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng Nhập - CNC Smart System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800&family=Be+Vietnam+Pro:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/isa101.css">
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+    <div class="logo-bk">
+        <img src="/static/images/hust_logo.png" alt="ĐHBK Hà Nội" onerror="this.src='https://via.placeholder.com/55x55?text=HUST'">
+        <div class="logo-bk-text">ĐH Bách Khoa<br>Hà Nội</div>
+    </div>
+    <div class="header-center">
+        <div class="main-title">TÍNH TOÁN, THIẾT KẾ HỆ THỐNG ĐIỀU KHIỂN<br>MÁY CNC ĐỂ BÀN TỰ CHỦ THÔNG MINH</div>
+        <div class="sub-title">GVHD: LÊ GIANG NAM</div>
+    </div>
+    <img src="/static/images/vimes_logo.png" alt="Vimes Lab" style="height:55px; width:auto;" onerror="this.src='https://via.placeholder.com/55x55?text=V'">
+</header>
+
+<!-- LOGIN FORM -->
+<main class="content" style="display: flex; align-items: center; justify-content: center;">
+    <div class="login-card">
+        <div class="login-title">ĐĂNG NHẬP HỆ THỐNG</div>
+
+        <form method="POST" action="/login" onsubmit="return handleLogin(event)">
+            <div class="form-row">
+                <label for="username">User</label>
+                <input type="text" id="username" name="username" autocomplete="username" spellcheck="false" required>
+            </div>
+            <div class="form-row">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" autocomplete="current-password" required>
+            </div>
+
+            <div class="error-msg" id="errMsg">
+                {% if error %}{{ error }}{% endif %}
+            </div>
+
+            <button type="submit" class="btn-enter"><span>ENTER</span></button>
+        </form>
+    </div>
+</main>
+
+<script>
+function handleLogin(e) {
+    const user = document.getElementById('username').value.trim();
+    const pass = document.getElementById('password').value.trim();
+    const err = document.getElementById('errMsg');
+    
+    if (!user || !pass) {
+        e.preventDefault();
+        err.textContent = '⚠ Vui lòng nhập đầy đủ thông tin.';
+        return false;
+    }
+    return true;
+}
+
+// Clear error when typing
+document.querySelectorAll('input').forEach(el => {
+    el.addEventListener('input', () => {
+        document.getElementById('errMsg').textContent = '';
+    });
+});
+
+// Enter key moves to next field
+document.getElementById('username').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('password').focus();
+});
+
+// ========== LOAD THEME TỪ LOCALSTORAGE ==========
+function loadThemeFromLocal() {
+    const saved = localStorage.getItem('cnc_theme');
+    if (saved) {
+        try {
+            const theme = JSON.parse(saved);
+            const root = document.documentElement;
+            if (theme.headerBg) root.style.setProperty('--gray-header', theme.headerBg); // ← đổi tên biến
+            if (theme.cardBg)   root.style.setProperty('--gray-card', theme.cardBg);   
+            if (theme.sidebarBg) root.style.setProperty('--gray-sidebar', theme.sidebarBg);
+            if (theme.accentColor) root.style.setProperty('--cyan-portal', theme.accentColor);
+            if (theme.borderColor) root.style.setProperty('--gray-border', theme.borderColor);
+            if (theme.textColor) root.style.setProperty('--text-primary', theme.textColor);
+            console.log('🎨 Theme loaded from localStorage');
+        } catch(e) { console.error('Theme parse error:', e); }
+    }
+}
+
+// Lắng nghe theme thay đổi từ tab khác
+window.addEventListener('storage', (event) => {
+    if (event.key === 'cnc_theme' && event.newValue) {
+        try {
+            const theme = JSON.parse(event.newValue);
+            const root = document.documentElement;
+            if (theme.headerBg) root.style.setProperty('--gray-card', theme.headerBg);
+            if (theme.sidebarBg) root.style.setProperty('--gray-sidebar', theme.sidebarBg);
+            if (theme.accentColor) root.style.setProperty('--cyan-portal', theme.accentColor);
+            if (theme.borderColor) root.style.setProperty('--gray-border', theme.borderColor);
+            if (theme.textColor) root.style.setProperty('--text-primary', theme.textColor);
+            console.log('🎨 Theme updated from another tab');
+        } catch(e) {}
+    }
+});
+
+// Khởi tạo
+loadThemeFromLocal();
+
+</script>
+
+</body>
+</html>

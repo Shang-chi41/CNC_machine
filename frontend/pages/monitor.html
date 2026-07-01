@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Giám Sát - CNC Smart System</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800&family=Be+Vietnam+Pro:wght@300;400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/isa101.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="/static/css/ai.css">
+<link rel="stylesheet" href="/static/css/monitor.css">
+</head>
+<body>
+
+<header class="header">
+    <div class="logo-bk">
+        <img src="/static/images/hust_logo.png" alt="HUST" onerror="this.src='https://via.placeholder.com/55x55?text=HUST'">
+        <div class="logo-bk-text">ĐH Bách Khoa<br>Hà Nội</div>
+    </div>
+    <div class="header-center">
+        <div class="main-title">TÍNH TOÁN, THIẾT KẾ HỆ THỐNG ĐIỀU KHIỂN MÁY CNC ĐỂ BÀN TỰ CHỦ THÔNG MINH</div>
+        <div class="sub-title">GVHD: LÊ GIANG NAM — VIMES LAB — HUST</div>
+    </div>
+    <img src="/static/images/vimes_logo.png" alt="Vimes" style="height:55px;width:auto;" onerror="this.src='https://via.placeholder.com/55x55?text=V'">
+</header>
+
+<div class="app-shell">
+
+<!-- ══ SIDEBAR ══ -->
+<aside class="sidebar">
+    <nav class="sidebar-nav">
+        <a class="nav-item" href="/">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--cyan-portal)" stroke-width="1.8" stroke-linecap="round"><path d="M3 12L12 3l9 9"/><path d="M9 21V12h6v9"/></svg>
+            <span class="nav-label">Home</span>
+        </a>
+        <a class="nav-item active" href="/monitor">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><polyline points="6,14 9,9 12,12 15,7 18,10"/></svg>
+            <span class="nav-label">Giám Sát</span>
+        </a>
+        <a class="nav-item" href="/control">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="4" width="20" height="16" rx="2"/><circle cx="9" cy="12" r="3"/><path d="M14 9h4M14 12h3M14 15h2"/></svg>
+            <span class="nav-label">Điều Khiển</span>
+        </a>
+        <a class="nav-item" href="/history">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18M8 14h4M8 18h6"/></svg>
+            <span class="nav-label">Lịch Sử</span>
+        </a>
+        <a class="nav-item" href="/settings">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>
+            <span class="nav-label">Thông Số</span>
+        </a>
+    </nav>
+    <div class="sidebar-status">
+        <div class="sdot-row"><div class="sdot idle" id="sEdgeDot"></div><span id="sEdgeTxt">Edge...</span></div>
+        <div class="sdot-row"><div class="sdot idle" id="sAlmDot"></div><span id="sAlmTxt">Alarm...</span></div>
+    </div>
+</aside>
+
+<!-- ══ MAIN ══ -->
+<main class="main-area">
+
+    <!-- Status bar top: trạng thái máy NGAY BÂY GIỜ -->
+    <div class="status-top">
+        <div class="st-state">
+            <div class="st-dot idle" id="stateDot"></div>
+            <span class="st-label" id="stateLabel">---</span>
+        </div>
+        <span class="st-sep">|</span>
+        <span class="st-val">X: <b id="posX">—</b></span>
+        <span class="st-val">Y: <b id="posY">—</b></span>
+        <span class="st-val">Z: <b id="posZ">—</b></span>
+        <span class="st-sep">|</span>
+        <span class="st-val">⚡ <b id="curVal">—</b> A</span>
+        <span class="st-val">F: <b id="feedVal">—</b> mm/min</span>
+        <span class="st-val">S: <b id="spindleVal">—</b> rpm</span>
+        <span class="st-sep">|</span>
+        <span class="st-badge" id="toolBadge">—</span>
+        <span class="st-badge" id="matBadge">—</span>
+        <span class="st-badge" id="rangeBadge" style="margin-left:auto;">—</span>
+        <span style="font-size:9px;color:var(--text-muted);margin-left:6px;" id="lastUpdateTime">—</span>
+    </div>
+
+    <div class="monitor-body">
+
+        <!-- CỘT TRÁI: Charts -->
+        <div class="col-charts">
+
+            <!-- Bộ lọc thời gian + nguồn -->
+            <div class="ctrl-row">
+                <button class="ctrl-btn active" onclick="setTime(60,this)">1H</button>
+                <button class="ctrl-btn" onclick="setTime(360,this)">6H</button>
+                <button class="ctrl-btn" onclick="setTime(720,this)">12H</button>
+                <button class="ctrl-btn" onclick="setTime(1440,this)">1D</button>
+            </div>
+            <div class="ctrl-row">
+                <button class="ctrl-btn active" onclick="setSource('physical',this)">📡 ESP32</button>
+                <button class="ctrl-btn" onclick="setSource('virtual',this)">🔬 MATLAB</button>
+                <button class="ctrl-btn" onclick="setSource('both',this)">⚡ Cả hai</button>
+            </div>
+
+            <!-- Chart vị trí -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <span class="chart-title">📍 VỊ TRÍ (mm)</span>
+                    <div class="chart-vals">
+                        <span class="cv-x">X: <b id="cvX">—</b></span>
+                        <span class="cv-y">Y: <b id="cvY">—</b></span>
+                        <span class="cv-z">Z: <b id="cvZ">—</b></span>
+                    </div>
+                </div>
+                <div class="leg">
+                    <span><span class="leg-dot" style="background:#e74c3c"></span>X</span>
+                    <span><span class="leg-dot" style="background:#00b894"></span>Y</span>
+                    <span><span class="leg-dot" style="background:#3498db"></span>Z</span>
+                </div>
+                <canvas id="chartPos" height="80"></canvas>
+            </div>
+
+            <!-- Chart vận tốc -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <span class="chart-title">⚡ VẬN TỐC (mm/s)</span>
+                    <div class="chart-vals">
+                        <span class="cv-x">Vx: <b id="cvVx">—</b></span>
+                        <span class="cv-y">Vy: <b id="cvVy">—</b></span>
+                        <span class="cv-z">Vz: <b id="cvVz">—</b></span>
+                    </div>
+                </div>
+                <canvas id="chartVel" height="70"></canvas>
+            </div>
+
+            <!-- Chart moment -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <span class="chart-title">🔩 MOMENT (N·m)</span>
+                    <div class="chart-vals">
+                        <span class="cv-x">Mx: <b id="cvMx">—</b></span>
+                        <span class="cv-y">My: <b id="cvMy">—</b></span>
+                        <span class="cv-z">Mz: <b id="cvMz">—</b></span>
+                    </div>
+                </div>
+                <canvas id="chartMom" height="70"></canvas>
+            </div>
+
+            <!-- Chart dòng điện (realtime, cập nhật 2s) -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <span class="chart-title">⚡ DÒNG ĐIỆN (A) — REALTIME</span>
+                    <div class="chart-vals">
+                        <span class="cv-i">I: <b id="cvI">—</b> A</span>
+                        <span style="font-size:9px;color:var(--text-muted);" id="currentStatus">—</span>
+                    </div>
+                </div>
+                <canvas id="chartCurrent" height="60"></canvas>
+                <div class="chart-info" id="chartInfo">🔄 Đang tải...</div>
+            </div>
+
+        </div>
+
+        <!-- CỘT PHẢI: Alarm + 3D viewer -->
+        <div class="col-right">
+
+            <!-- Alarm panel -->
+            <div class="panel-title">
+                <span>🚨 CẢNH BÁO HIỆN TẠI</span>
+                <span style="font-size:9px;font-family:monospace;color:var(--text-muted);" id="alarmCount">—</span>
+            </div>
+
+            <div class="alarm-filters">
+                <button class="af-btn active" onclick="setAlarmFilter('all',this)">Tất cả</button>
+                <button class="af-btn" onclick="setAlarmFilter('warning',this)">⚠ Warn</button>
+                <button class="af-btn" onclick="setAlarmFilter('critical',this)">🛑 Crit</button>
+                <button class="af-btn" style="margin-left:auto;" onclick="fetchAlarms()">↺</button>
+            </div>
+
+            <div class="alarm-table-wrap">
+                <table>
+                    <thead><tr>
+                        <th>MỨC</th>
+                        <th>NỘI DUNG</th>
+                        <th>GIỜ</th>
+                        <th>XỬ LÝ</th>
+                    </tr></thead>
+                    <tbody id="alarmBody">
+                        <tr><td colspan="4"><div class="empty-state">🔄 Đang tải...</div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 3D Viewer -->
+            <div class="viewer-wrap">
+                <div class="viewer-header">
+                    <span>🎮 3D VIEWER</span>
+                    <span class="load-pill" id="loadPill">🟢 Kết nối...</span>
+                </div>
+                <iframe id="cncFrame" src="/static/cnc_viewer.html" class="viewer-frame" allow="autoplay"></iframe>
+            </div>
+
+        </div>
+    </div>
+</main>
+
+<!-- ══ AI PANEL ══ -->
+<aside class="ai-panel">
+    <div class="ai-header">
+        <span class="ai-header-title">⚡ AI ASSISTANT</span>
+        <span class="ai-prov-badge" id="aiProvBadge">gemini ▾</span>
+    </div>
+    <div class="ai-user-bar">
+        <div class="ai-user-dot"></div>
+        <span id="aiUser">...</span>
+        <span style="font-size:9px;color:var(--text-muted);" id="aiRoleLbl"></span>
+        <button class="ai-logout-btn" onclick="doLogout()">LOGOUT</button>
+    </div>
+    <div class="ai-ctx-bar">
+        <div class="ai-ctx-dot"></div>
+        <span>GIÁM SÁT REALTIME</span>
+    </div>
+    <div class="ai-msgs" id="aiMsgs">
+        <div class="ai-msg sys">Ngữ cảnh: Monitor</div>
+        <div class="ai-msg ai">Tôi đang theo dõi máy realtime. Hỏi tôi về alarm, xu hướng dòng điện, hoặc phân tích dữ liệu hiện tại! 📡</div>
+    </div>
+    <div class="ai-input-area">
+        <div class="ai-input-row">
+            <textarea class="ai-textarea" id="aiIn" placeholder="Nhập câu hỏi..." rows="2" onkeydown="aiKeydown(event)"></textarea>
+            <button class="ai-send" id="aiBtn" onclick="aiSend()">➤</button>
+        </div>
+        <div class="ai-tools">
+            <span class="ai-tier-lbl" id="aiTierLbl">tier: cloud</span>
+        </div>
+    </div>
+</aside>
+
+</div>
+
+<script type="module" src="/static/js/monitor.js"></script>
+</body>
+</html>
