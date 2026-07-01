@@ -10,15 +10,6 @@
  *   - (tuy chon) Luu G-Code AI sinh ra + gui sang Toolpath Preview (#toolpathFrame)
  *   - Sidebar status (Edge online / so luong alarm) — #sEdgeDot/#sEdgeTxt, #sAlmDot/#sAlmTxt
  *   - User bar (#aiUser, #aiRoleLbl) + nut Logout (window.doLogout)
- *
- * Su dung (trong moi trang):
- *   import { auth }      from '/static/js/auth.js';
- *   import { api }       from '/static/js/api.js';
- *   import { initAiChat, initSidebarStatus, initUserBar } from '/static/js/ai_chat.js';
- *
- *   initUserBar(auth);
- *   initSidebarStatus();
- *   initAiChat({ enableUpload:true, enableGcodeActions:true, onAfterChat: fetchGcodeList });
  */
 
 import { api } from '/static/js/api.js';
@@ -72,12 +63,60 @@ export async function fetchProviderBadge() {
         const d = await api.get('/api/ai/provider/status');
         const badge = document.getElementById('aiProvBadge');
         if (badge) badge.textContent = `${d.provider || 'gemini'} ▾`;
-        // base.html dung id "aiTier", cac trang con lai dung "aiTierLbl"
         const tier = document.getElementById('aiTierLbl') || document.getElementById('aiTier');
         if (tier) tier.textContent = `tier: ${d.tier || 'cloud'}`;
         return d;
     } catch (_) { return null; }
 }
+
+/**
+ * Làm mới provider badge trên tất cả các panel
+ * Gọi từ settings.js khi đổi provider
+ */
+export async function refreshProviderBadge() {
+    try {
+        const d = await api.get('/api/ai/provider/status');
+        const provider = d.provider || 'gemini';
+        const tier = d.tier || 'cloud';
+        
+        // Cập nhật tất cả badge
+        document.querySelectorAll('#aiProvBadge').forEach(el => {
+            el.textContent = `${provider} ▾`;
+        });
+        
+        document.querySelectorAll('#aiTierLbl, #aiTier').forEach(el => {
+            el.textContent = `tier: ${tier}`;
+        });
+        
+        // Cập nhật pill trong settings
+        const tierPill = document.getElementById('tierPill');
+        if (tierPill) {
+            tierPill.textContent = tier;
+            tierPill.className = `tier-pill ${tier === 'cloud' ? 'tier-cloud' : tier === 'local' ? 'tier-local' : 'tier-emergency'}`;
+        }
+        
+        const provNameLbl = document.getElementById('provNameLbl');
+        if (provNameLbl) provNameLbl.textContent = provider;
+        
+        // Highlight provider card trong settings
+        document.querySelectorAll('.prov-card').forEach(c => {
+            c.classList.toggle('active', c.getAttribute('data-p') === provider);
+        });
+        
+        // Cập nhật context badge trong AI panel nếu có
+        const ctxBadge = document.querySelector('.ai-ctx-bar .ai-ctx-dot');
+        if (ctxBadge) {
+            ctxBadge.style.background = provider === 'ollama' ? 'var(--status-active)' : 'var(--cyan-portal)';
+        }
+        
+        return d;
+    } catch (_) {
+        return null;
+    }
+}
+
+// Gán vào window để settings.js có thể gọi
+window.refreshProviderBadge = refreshProviderBadge;
 
 /**
  * Khoi tao AI Chat widget day du.
@@ -88,6 +127,7 @@ export async function fetchProviderBadge() {
  * @param {Function} [opts.onAfterChat]     - callback chay sau khi 1 luot chat hoan tat (vd: refresh danh sach G-code)
  * @param {number} [opts.pollIntervalMs]    - chu ky poll ket qua AI (mac dinh 2000ms)
  * @param {number} [opts.maxPollTries]      - so lan poll toi da truoc khi bo cuoc (mac dinh 40)
+ * @param {string} [opts.context]           - context: 'monitor' | 'control' | 'history' | 'home' | 'settings'
  */
 export function initAiChat(opts = {}) {
     const {
@@ -96,12 +136,27 @@ export function initAiChat(opts = {}) {
         onAfterChat = null,
         pollIntervalMs = 2000,
         maxPollTries = 40,
+        context = 'home',
     } = opts;
 
     let _busy = false;
     let _imgId = '';
+    let _currentConvId = null;
 
     const _el = id => document.getElementById(id);
+
+    // ── Set context ──
+    const ctxEl = document.getElementById('aiCtx');
+    if (ctxEl) {
+        const ctxMap = {
+            monitor: 'GIÁM SÁT REALTIME',
+            control: 'ĐIỀU KHIỂN + G-CODE',
+            history: 'LỊCH SỬ DỮ LIỆU',
+            home: 'HOME',
+            settings: 'CẤU HÌNH HỆ THỐNG'
+        };
+        ctxEl.textContent = ctxMap[context] || 'HMI';
+    }
 
     function _appendMsg(role, html) {
         const c = _el('aiMsgs');
@@ -129,7 +184,7 @@ export function initAiChat(opts = {}) {
             return `${cleanText}<pre>${gcode || ''}</pre>`;
         }
         return `${cleanText}<pre>${gcode || ''}</pre>
-            <div style="display:flex;gap:5px;margin-top:5px;">
+            <div style="display:flex;gap:5px;margin-top:5px;flex-wrap:wrap;">
                 <button onclick="aiSaveGCode(this,'${gcEnc}')" style="font-size:9px;padding:2px 8px;border:1px solid var(--cyan-portal);background:transparent;color:var(--cyan-portal);border-radius:3px;cursor:pointer;">💾 Lưu G-Code</button>
                 <button onclick="aiSendToViewer(this,'${gcEnc}')" style="font-size:9px;padding:2px 8px;border:1px solid var(--status-active);background:transparent;color:var(--status-active);border-radius:3px;cursor:pointer;">👁 Preview</button>
             </div>`;
@@ -155,6 +210,7 @@ export function initAiChat(opts = {}) {
             const r = await api.post('/api/ai/chat', body);
             const id = r?.conversation_id;
             if (!id) throw new Error('Không nhận được ID');
+            _currentConvId = id;
 
             let tries = 0;
             const iv = setInterval(async () => {
@@ -166,9 +222,13 @@ export function initAiChat(opts = {}) {
                         _rmTyping();
                         const last = d.messages?.filter(m => m.role === 'assistant').pop();
                         const txt = last?.message || (d.failed ? '❌ AI thất bại' : '...');
-                        if (last?.has_gcode) {
+                        if (last?.has_gcode && last?.gcode) {
                             const clean = txt.replace(/```gcode[\s\S]*?```/g, '');
                             _appendMsg('ai', _buildGcodeReply(clean, last.gcode));
+                            // Gọi callback với G-code nếu có
+                            if (typeof window.setGCodeFromAI === 'function') {
+                                window.setGCodeFromAI(last.gcode);
+                            }
                         } else {
                             _appendMsg('ai', txt);
                         }
@@ -189,7 +249,7 @@ export function initAiChat(opts = {}) {
 
     window.aiSend = sendChat;
     window.aiKeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } };
-    window.aiRefreshProvider = fetchProviderBadge;
+    window.aiRefreshProvider = refreshProviderBadge;
 
     if (enableUpload) {
         window.aiUpload = async function (ev) {
@@ -226,9 +286,7 @@ export function initAiChat(opts = {}) {
 
         window.aiSendToViewer = function (btn, gcEnc) {
             const gc = decodeURIComponent(gcEnc);
-            // Khong tu tao twin moi moi lan goi — dung chung 1 instance tro toi
-            // #toolpathFrame (chi co o control.html). Trang khac khong co frame
-            // nay nen DigitalTwinViewer se chi la no-op (postMessage tren iframe null).
+            // Gửi lên toolpath viewer qua DigitalTwinViewer
             const twin = new DigitalTwinViewer('toolpathFrame');
             twin.renderToolpath(gc);
             const status = _el('toolpathStatus');
@@ -237,7 +295,11 @@ export function initAiChat(opts = {}) {
         };
     }
 
-    fetchProviderBadge();
+    // Load provider badge
+    refreshProviderBadge();
 
-    return { sendChat, fetchProviderBadge };
+    return { sendChat, refreshProviderBadge, fetchProviderBadge: refreshProviderBadge };
 }
+
+// Export riêng để dùng trong settings
+export { refreshProviderBadge as fetchProviderBadge };
