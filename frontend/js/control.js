@@ -21,6 +21,7 @@ theme.init();
 
 // ⭐ HELPER FUNCTIONS
 function _el(id) { return document.getElementById(id); }
+
 function _showCtrlMsg(msg, color) {
     const el = document.getElementById('ctrlMsg');
     if (el) {
@@ -150,11 +151,47 @@ function buildAxes() {
         tp3dScene.add(grid);
     }
     
-    // Axes
+    // ⭐ AXES - MÀU XANH ISA-101 (#1E5FA8)
     if (tp3dAxesVisible) {
-        const axes = new THREE.AxesHelper(250);
-        axes.userData.isAxis = true;
-        tp3dScene.add(axes);
+        const axesLength = 250;
+        const arrowHeadLength = 10;
+        const arrowHeadWidth = 6;
+        
+        // Trục X - Đỏ
+        const arrowX = new THREE.ArrowHelper(
+            new THREE.Vector3(1, 0, 0),
+            new THREE.Vector3(0, -50, 0),
+            axesLength,
+            0xe74c3c,
+            arrowHeadLength,
+            arrowHeadWidth
+        );
+        arrowX.userData.isAxis = true;
+        tp3dScene.add(arrowX);
+        
+        // Trục Y - Xanh lá
+        const arrowY = new THREE.ArrowHelper(
+            new THREE.Vector3(0, 1, 0),
+            new THREE.Vector3(0, -50, 0),
+            axesLength,
+            0x2ecc71,
+            arrowHeadLength,
+            arrowHeadWidth
+        );
+        arrowY.userData.isAxis = true;
+        tp3dScene.add(arrowY);
+        
+        // Trục Z - Xanh ISA-101 (#1E5FA8)
+        const arrowZ = new THREE.ArrowHelper(
+            new THREE.Vector3(0, 0, 1),
+            new THREE.Vector3(0, -50, 0),
+            axesLength,
+            0x1E5FA8,
+            arrowHeadLength,
+            arrowHeadWidth
+        );
+        arrowZ.userData.isAxis = true;
+        tp3dScene.add(arrowZ);
     }
     
     // Box
@@ -218,7 +255,10 @@ function buildToolpathLine(pts) {
         tp3dHeadMesh = null;
     }
     
-    if (!pts.length) return;
+    if (!pts.length) {
+        showToolpathOverlay();
+        return;
+    }
     
     const positions = [];
     const colors = [];
@@ -226,7 +266,6 @@ function buildToolpathLine(pts) {
     pts.forEach((p, i) => {
         positions.push(p.x, p.z, -p.y);
         const t = pts.length > 1 ? i / (pts.length - 1) : 0;
-        // Gradient: xanh -> cam
         const r = 0x1E + (0xCC - 0x1E) * t;
         const g = 0x5F + (0x66 - 0x5F) * t;
         const b = 0xA8 + (0x00 - 0xA8) * t;
@@ -248,9 +287,8 @@ function buildToolpathLine(pts) {
     tp3dHeadMesh.position.set(pts[0].x, pts[0].z, -pts[0].y);
     tp3dScene.add(tp3dHeadMesh);
     
-    // Hide overlay
-    const overlay = document.getElementById('tp3dOverlay');
-    if (overlay) overlay.style.display = 'none';
+    // ⭐ Ẩn overlay khi có G-code
+    hideToolpathOverlay();
     
     // Update info
     const xs = pts.map(p => p.x), ys = pts.map(p => p.y), zs = pts.map(p => p.z);
@@ -279,10 +317,29 @@ function clearToolpath3D() {
         tp3dHeadMesh = null;
     }
     tp3dPoints = [];
-    const overlay = document.getElementById('tp3dOverlay');
-    if (overlay) overlay.style.display = 'flex';
+    
+    // ⭐ Hiển thị overlay khi xóa G-code
+    showToolpathOverlay();
+    
     const infoEl = document.getElementById('tp3dInfo');
     if (infoEl) infoEl.textContent = 'Chưa có G-Code';
+}
+
+// ⭐ HIỂN THỊ/ẨN OVERLAY
+function showToolpathOverlay() {
+    const overlay = document.getElementById('tp3dOverlay');
+    if (overlay) {
+        overlay.classList.remove('hidden');
+        overlay.classList.add('visible');
+    }
+}
+
+function hideToolpathOverlay() {
+    const overlay = document.getElementById('tp3dOverlay');
+    if (overlay) {
+        overlay.classList.remove('visible');
+        overlay.classList.add('hidden');
+    }
 }
 
 function tp3dToggleGrid() {
@@ -612,7 +669,6 @@ async function runGcode(id, btn) {
 }
 
 function previewGcode(id) {
-    // Sử dụng 3D toolpath
     document.getElementById('toolpathStatus').textContent = `Đang load G-code ${id.slice(-6)}...`;
     fetch(`/api/gcode/${id}`)
         .then(r => r.json())
