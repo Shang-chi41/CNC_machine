@@ -146,64 +146,100 @@ function buildAxes() {
     tp3dScene.children.forEach(child => {
         if (child.userData?.isAxis) toRemove.push(child);
     });
-    toRemove.forEach(child => tp3dScene.remove(child));
+    toRemove.forEach(child => {
+        tp3dScene.remove(child);
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) child.material.dispose();
+    });
 
-    // Grid
-    if (tp3dGridVisible) {
-        const grid = new THREE.GridHelper(400, 20, 0x9A9C9F, 0xB0B2B6);
-        grid.position.y = -50;
-        grid.userData.isAxis = true;
-        tp3dScene.add(grid);
+    const xMn = WS.xMin, xMx = WS.xMax, yMn = WS.yMin, yMx = WS.yMax, zMn = WS.zMin, zMx = WS.zMax;
+    const WS_W = xMx - xMn, WS_D = yMx - yMn, WS_H = zMx - zMn;
+
+    // Mảng nền mờ (đáy + vách sau) — giống bản gốc
+    const panelMat = new THREE.MeshBasicMaterial({
+        color: 0xD0D2D6, transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false
+    });
+
+    const botP = new THREE.Mesh(new THREE.PlaneGeometry(WS_W, WS_D), panelMat.clone());
+    botP.rotation.x = -Math.PI / 2;
+    botP.position.set((xMn + xMx) / 2, zMn, -(yMn + yMx) / 2);
+    botP.userData.isAxis = true;
+    tp3dScene.add(botP);
+
+    const backP = new THREE.Mesh(new THREE.PlaneGeometry(WS_W, WS_H), panelMat.clone());
+    backP.position.set((xMn + xMx) / 2, (zMn + zMx) / 2, -yMx);
+    backP.userData.isAxis = true;
+    tp3dScene.add(backP);
+
+    // Box — khung bao đúng workspace (không phải box đặt giữa tâm)
+    if (tp3dBoxVisible) {
+        const corners = [
+            [xMn, zMn, -yMn], [xMx, zMn, -yMn], [xMx, zMx, -yMn], [xMn, zMx, -yMn],
+            [xMn, zMn, -yMx], [xMx, zMn, -yMx], [xMx, zMx, -yMx], [xMn, zMx, -yMx]
+        ];
+        const boxEdges = [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+        const boxPts = [];
+        boxEdges.forEach(([a, b]) => { boxPts.push(new THREE.Vector3(...corners[a]), new THREE.Vector3(...corners[b])); });
+        const boxGeo = new THREE.BufferGeometry().setFromPoints(boxPts);
+        const box = new THREE.LineSegments(boxGeo, new THREE.LineBasicMaterial({ color: 0x9A9C9F, transparent: true, opacity: 0.7 }));
+        box.userData.isAxis = true;
+        tp3dScene.add(box);
     }
 
-    // ⭐ AXES
-    if (tp3dAxesVisible) {
-        const axesLength = 250, arrowHeadLength = 10, arrowHeadWidth = 6;
+    // Lưới kẻ 3 mặt theo kích thước workspace
+    if (tp3dGridVisible) {
+        const gridMat = new THREE.LineBasicMaterial({ color: 0xB0B2B6, transparent: true, opacity: 0.6 });
 
-        const arrowX = new THREE.ArrowHelper(
-            new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, -50, 0),
-            axesLength, 0xe74c3c, arrowHeadLength, arrowHeadWidth
-        );
+        const gridPts = [];
+        const yStep = WS_D / 6;
+        for (let i = 0; i <= 6; i++) { const wy = -(yMn + i * yStep); gridPts.push(new THREE.Vector3(xMn, zMn, wy), new THREE.Vector3(xMx, zMn, wy)); }
+        const xStep = WS_W / 8;
+        for (let i = 0; i <= 8; i++) { const wx = xMn + i * xStep; gridPts.push(new THREE.Vector3(wx, zMn, -yMn), new THREE.Vector3(wx, zMn, -yMx)); }
+        const gridLines = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(gridPts), gridMat);
+        gridLines.userData.isAxis = true;
+        tp3dScene.add(gridLines);
+
+        const backGridPts = [];
+        const zStep = WS_H / 4;
+        for (let i = 0; i <= 4; i++) { const wz = zMn + i * zStep; backGridPts.push(new THREE.Vector3(xMn, wz, -yMx), new THREE.Vector3(xMx, wz, -yMx)); }
+        for (let i = 0; i <= 8; i++) { const wx = xMn + i * xStep; backGridPts.push(new THREE.Vector3(wx, zMn, -yMx), new THREE.Vector3(wx, zMx, -yMx)); }
+        const backGridLines = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(backGridPts), gridMat.clone());
+        backGridLines.userData.isAxis = true;
+        tp3dScene.add(backGridLines);
+
+        const lGridPts = [];
+        for (let i = 0; i <= 4; i++) { const wz = zMn + i * zStep; lGridPts.push(new THREE.Vector3(xMn, wz, -yMn), new THREE.Vector3(xMn, wz, -yMx)); }
+        for (let i = 0; i <= 6; i++) { const wy = -(yMn + i * yStep); lGridPts.push(new THREE.Vector3(xMn, zMn, wy), new THREE.Vector3(xMn, zMx, wy)); }
+        const lGridLines = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(lGridPts), gridMat.clone());
+        lGridLines.userData.isAxis = true;
+        tp3dScene.add(lGridLines);
+    }
+
+    // ⭐ AXES — mũi tên xuất phát từ góc workspace (giống bản gốc)
+    if (tp3dAxesVisible) {
+        const arrowX = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(xMn, zMn, -yMn), WS_W * 0.25, 0x1E5FA8, 8, 5);
         arrowX.userData.isAxis = true;
         tp3dScene.add(arrowX);
 
-        const arrowY = new THREE.ArrowHelper(
-            new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, -50, 0),
-            axesLength, 0x2ecc71, arrowHeadLength, arrowHeadWidth
-        );
+        const arrowY = new THREE.ArrowHelper(new THREE.Vector3(0, 0, -1), new THREE.Vector3(xMn, zMn, -yMn), WS_D * 0.25, 0x1E5FA8, 8, 5);
         arrowY.userData.isAxis = true;
         tp3dScene.add(arrowY);
 
-        const arrowZ = new THREE.ArrowHelper(
-            new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, -50, 0),
-            axesLength, 0x1E5FA8, arrowHeadLength, arrowHeadWidth
-        );
+        const arrowZ = new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(xMn, zMn, -yMn), WS_H * 0.6, 0x1E5FA8, 8, 5);
         arrowZ.userData.isAxis = true;
         tp3dScene.add(arrowZ);
     }
 
-    // Box
-    if (tp3dBoxVisible) {
-        const boxGeo = new THREE.BoxGeometry(400, 100, 300);
-        const boxEdges = new THREE.EdgesGeometry(boxGeo);
-        const boxLine = new THREE.LineSegments(boxEdges,
-            new THREE.LineBasicMaterial({ color: 0x9A9C9F, transparent: true, opacity: 0.3 })
-        );
-        boxLine.position.set(0, 0, 0);
-        boxLine.userData.isAxis = true;
-        tp3dScene.add(boxLine);
-    }
-
     // ⭐ Z-Plane (mặt phẳng Z=0)
     if (tp3dZPlaneVisible) {
-        const planeGeo  = new THREE.PlaneGeometry(400, 300);
+        const planeGeo  = new THREE.PlaneGeometry(WS_W, WS_D);
         const planeMat  = new THREE.MeshBasicMaterial({
             color: 0x1E5FA8, transparent: true, opacity: 0.06,
             side: THREE.DoubleSide, depthWrite: false
         });
         const planeMesh = new THREE.Mesh(planeGeo, planeMat);
         planeMesh.rotation.x = -Math.PI / 2;
-        planeMesh.position.y = -50;
+        planeMesh.position.set((xMn + xMx) / 2, 0, -(yMn + yMx) / 2);
         planeMesh.userData.isAxis = true;
         tp3dScene.add(planeMesh);
     }
