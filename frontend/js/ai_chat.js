@@ -302,4 +302,4 @@ export function initAiChat(opts = {}) {
 }
 
 // Export riêng để dùng trong settings
-export { refreshProviderBadge as fetchProviderBadge };
+
