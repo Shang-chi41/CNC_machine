@@ -140,15 +140,30 @@ async function fetchProvStatus() {
     try {
         const d = await api.get('/api/ai/provider/status');
         const tier = d.tier || 'cloud', prov = d.provider || 'gemini';
-        document.getElementById('aiProvBadge').textContent = `${prov} ▾`;
-        document.getElementById('aiTierLbl').textContent = `tier: ${tier}`;
+        
+        // Cập nhật tất cả badge trên toàn bộ trang
+        document.querySelectorAll('#aiProvBadge').forEach(el => {
+            el.textContent = `${prov} ▾`;
+        });
+        document.querySelectorAll('#aiTierLbl, #aiTier').forEach(el => {
+            el.textContent = `tier: ${tier}`;
+        });
+        
+        // Cập nhật settings
         const pill = document.getElementById('tierPill');
-        pill.textContent = tier;
-        pill.className = `tier-pill ${tier === 'cloud' ? 'tier-cloud' : tier === 'local' ? 'tier-local' : 'tier-emergency'}`;
+        if (pill) {
+            pill.textContent = tier;
+            pill.className = `tier-pill ${tier === 'cloud' ? 'tier-cloud' : tier === 'local' ? 'tier-local' : 'tier-emergency'}`;
+        }
         document.getElementById('provNameLbl').textContent = prov;
-        document.querySelectorAll('.prov-card').forEach(c => c.classList.toggle('active', c.getAttribute('data-p') === prov));
+        document.querySelectorAll('.prov-card').forEach(c => {
+            c.classList.toggle('active', c.getAttribute('data-p') === prov);
+        });
+        
         _showMsg('aiMsg', `✅ Tier: ${tier} | ${prov}`, 'var(--status-active)');
-    } catch (e) { _showMsg('aiMsg', '❌ ' + e.message, 'var(--status-alarm)'); }
+    } catch (e) {
+        _showMsg('aiMsg', '❌ ' + e.message, 'var(--status-alarm)');
+    }
 }
 
 window.selectProv = function (card) {
