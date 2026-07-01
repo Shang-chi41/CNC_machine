@@ -1,5 +1,5 @@
 /* monitor.css
- * Page-specific styles for Monitor (no charts - only realtime data)
+ * Page-specific styles for Monitor (realtime data table + 3D viewer + alarm)
  */
 
 body { flex-direction:column; overflow:hidden; height:100vh; }
@@ -14,39 +14,34 @@ body { flex-direction:column; overflow:hidden; height:100vh; }
 }
 
 /* ════════════════════════════════════════════════════════════════
-   STATUS ROW - SỐ LIỆU REALTIME
+   STATUS ROW - SỐ LIỆU REALTIME DẠNG BẢNG
    ════════════════════════════════════════════════════════════════ */
 .status-row {
     display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 8px 16px;
+    align-items: stretch;
+    gap: 20px;
+    padding: 10px 16px;
     background: var(--gray-card);
     border-bottom: 2px solid var(--gray-border);
     flex-shrink: 0;
     flex-wrap: wrap;
-    min-height: 56px;
+    min-height: 60px;
 }
 
-.status-group {
+.status-col {
     display: flex;
     align-items: center;
     gap: 16px;
     flex-wrap: wrap;
-}
-
-.status-divider {
-    width: 1px;
-    height: 32px;
-    background: var(--gray-border);
-    flex-shrink: 0;
+    flex: 1;
+    min-width: 180px;
 }
 
 .status-item {
     display: flex;
     flex-direction: column;
     align-items: center;
-    min-width: 60px;
+    min-width: 65px;
 }
 
 .status-label {
@@ -59,78 +54,20 @@ body { flex-direction:column; overflow:hidden; height:100vh; }
 }
 
 .status-value {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 700;
     color: var(--text-primary);
     font-family: 'Courier New', monospace;
     line-height: 1.2;
 }
 
+.status-value.idle {
+    color: var(--text-muted);
+}
+
 .status-unit {
-    font-size: 9px;
-    color: var(--text-muted);
-}
-
-/* ════════════════════════════════════════════════════════════════
-   AXIS DETAIL TABLE - VẬN TỐC / MOMENT THEO TỪNG TRỤC
-   ════════════════════════════════════════════════════════════════ */
-.axis-panel {
-    padding: 6px 16px 8px;
-    background: var(--gray-card);
-    border-bottom: 2px solid var(--gray-border);
-    flex-shrink: 0;
-}
-
-.axis-table {
-    width: 100%;
-    max-width: 520px;
-    border-collapse: collapse;
-}
-
-.axis-table th {
     font-size: 8px;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
     color: var(--text-muted);
-    font-family: 'Orbitron', monospace;
-    text-align: left;
-    padding: 2px 12px 4px 4px;
-}
-
-.axis-table td {
-    padding: 2px 12px 2px 4px;
-    white-space: nowrap;
-}
-
-.axis-name {
-    font-family: 'Orbitron', monospace;
-    font-size: 14px;
-    font-weight: 800;
-    width: 20px;
-}
-
-.axis-row.axis-x .axis-name { color: #e74c3c; }
-.axis-row.axis-y .axis-name { color: #2ecc71; }
-.axis-row.axis-z .axis-name { color: #3498db; }
-
-.axis-value {
-    font-family: 'Courier New', monospace;
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--text-primary);
-}
-
-.axis-unit {
-    font-size: 9px;
-    color: var(--text-muted);
-    margin-left: 3px;
-}
-
-.axis-note {
-    font-size: 9px;
-    color: var(--text-muted);
-    margin-top: 2px;
 }
 
 /* ── State ── */
@@ -191,7 +128,7 @@ body { flex-direction:column; overflow:hidden; height:100vh; }
 }
 
 /* ════════════════════════════════════════════════════════════════
-   MONITOR BODY - 3D VIEWER + ALARM
+   MONITOR BODY - 3D VIEWER + ALARM (2 CỘT)
    ════════════════════════════════════════════════════════════════ */
 .monitor-body {
     flex: 1;
@@ -313,7 +250,6 @@ body { flex-direction:column; overflow:hidden; height:100vh; }
     transition: var(--transition);
 }
 .alarm-table-wrap tbody tr:hover { background: var(--cyan-glow); }
-
 .alarm-table-wrap tbody td {
     padding: 5px 8px;
     color: var(--text-secondary);
@@ -416,14 +352,12 @@ body { flex-direction:column; overflow:hidden; height:100vh; }
         gap: 8px;
         padding: 6px 10px;
     }
-    .status-group {
+    .status-col {
         gap: 8px;
+        min-width: 100px;
     }
     .status-value {
-        font-size: 14px;
-    }
-    .status-divider {
-        display: none;
+        font-size: 13px;
     }
     .st-label {
         font-size: 11px;
