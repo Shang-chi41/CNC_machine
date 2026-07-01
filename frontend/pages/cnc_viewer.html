@@ -598,6 +598,7 @@ const AUTO_LOAD_PATH = '/static/models/' + AUTO_LOAD_FILE;
 document.getElementById('autoFileName').textContent = AUTO_LOAD_FILE;
 
 // ⭐ IDLE COLOR (Xám ISA-101)
+// ⭐ Màu xám IDLE — khớp với biến --gray-border (#9A9C9F) trong isa101.css
 const IDLE_COLOR = 0x9A9C9F;
 
 // ========== ĐỒNG BỘ MÀU NỀN VỚI THEME ISA-101 ==========
@@ -640,6 +641,9 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(new THREE.Color('#C8CACF'), 1);
 renderer.physicallyCorrectLights = true;
+// ⭐ sRGB output encoding — thiếu dòng này khiến màu hex (kể cả xám ISA-101 #9A9C9F)
+// bị render tối hơn nhiều so với thực tế, model trông gần như đen thay vì xám.
+renderer.outputEncoding = THREE.sRGBEncoding;
 
 // ===== SCENE =====
 const scene = new THREE.Scene();
@@ -671,6 +675,10 @@ scene.add(fillLight);
 const rimLight = new THREE.PointLight(0xff6633, 0.3, 2000);
 rimLight.position.set(0, -300, 400);
 scene.add(rimLight);
+// ⭐ Ánh sáng nền dịu theo tông xám ISA-101 (sky=--gray-bg, ground=--gray-border)
+// giúp các mặt khuất không bị tối đen hoàn toàn.
+const hemiLight = new THREE.HemisphereLight(0xC8CACF, 0x6A6C6F, 0.5);
+scene.add(hemiLight);
 
 // ===== HELPERS =====
 const axesHelper = new THREE.AxesHelper(250);
@@ -874,8 +882,8 @@ async function processFile(file, saveToDb = false) {
             g.computeVertexNormals();
             const mat = new THREE.MeshStandardMaterial({ 
                 color: IDLE_COLOR,
-                roughness: 0.3, 
-                metalness: 0.7 
+                roughness: 0.55, 
+                metalness: 0.35 
             });
             const mesh = new THREE.Mesh(g, mat);
             mainGroup.add(mesh); allMeshes.push(mesh);
@@ -947,7 +955,7 @@ function meshesToData() {
 function rebuildFromData(data) {
     if (mainGroup){scene.remove(mainGroup);allMeshes.forEach(m=>{m.geometry.dispose();m.material.dispose();}); }
     allMeshes=[]; mainGroup=new THREE.Group();
-    data.meshData.forEach(md=>{const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(md.position),3));if(md.index)g.setIndex(new THREE.BufferAttribute(new Uint32Array(md.index),1));g.computeVertexNormals();const mat=new THREE.MeshStandardMaterial({color:md.color,roughness:0.3,metalness:0.7});const mesh=new THREE.Mesh(g,mat);mainGroup.add(mesh);allMeshes.push(mesh);});
+    data.meshData.forEach(md=>{const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(md.position),3));if(md.index)g.setIndex(new THREE.BufferAttribute(new Uint32Array(md.index),1));g.computeVertexNormals();const mat=new THREE.MeshStandardMaterial({color:md.color,roughness:0.55,metalness:0.35});const mesh=new THREE.Mesh(g,mat);mainGroup.add(mesh);allMeshes.push(mesh);});
     scene.add(mainGroup);
     mainGroup.position.fromArray(data.groupPos);
     currentRotation.set(...data.rotation); currentScale=data.scale;
