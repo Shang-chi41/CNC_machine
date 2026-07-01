@@ -37,13 +37,34 @@ window.switchTab = function (tab, btn) {
 };
 
 // ══ SENSOR ══
-let _sensorChart;
+let _sensorChart, _cVel, _cMom, _cCur;
 function _initSensorChart() {
     _sensorChart = createLineChart('sensorChart', [
         { label: 'X', color: '#e74c3c' },
         { label: 'Y', color: '#00b894' },
         { label: 'Z', color: '#3498db' },
     ], { maxTicks: 8, fontSize: 9 });
+
+    // Khởi tạo thêm 3 chart mới nếu canvas tồn tại
+    if (document.getElementById('chartVel')) {
+        _cVel = createLineChart('chartVel', [
+            { label: 'Vx', color: '#e74c3c' },
+            { label: 'Vy', color: '#00b894' },
+            { label: 'Vz', color: '#3498db' },
+        ], { maxTicks: 8, fontSize: 9 });
+    }
+    if (document.getElementById('chartMom')) {
+        _cMom = createLineChart('chartMom', [
+            { label: 'Mx', color: '#e74c3c' },
+            { label: 'My', color: '#00b894' },
+            { label: 'Mz', color: '#3498db' },
+        ], { maxTicks: 8, fontSize: 9 });
+    }
+    if (document.getElementById('chartCur')) {
+        _cCur = createLineChart('chartCur', [
+            { label: 'I(A)', color: '#f39c12' },
+        ], { maxTicks: 8, fontSize: 9 });
+    }
 }
 
 async function fetchSensor() {
@@ -64,19 +85,50 @@ async function fetchSensor() {
 
 function _renderSensorChart(data) {
     if (!_sensorChart) return;
-    _sensorChart.data.labels = [];
-    _sensorChart.data.datasets.forEach(d => d.data = []);
+
+    // Clear all charts
+    const charts = [_sensorChart, _cVel, _cMom, _cCur].filter(Boolean);
+    charts.forEach(c => {
+        c.data.labels = [];
+        c.data.datasets.forEach(d => d.data = []);
+    });
+
     data.forEach(d => {
         const ts = d.timestamp || d.mqtt_timestamp || d.created_at || '';
         let t = '';
         try { t = new Date(ts).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }); } catch (_) { t = ts.slice(11, 16); }
-        _sensorChart.data.labels.push(t);
         const axes = d.axes || {};
+
+        // Position chart
+        _sensorChart.data.labels.push(t);
         _sensorChart.data.datasets[0].data.push(axes.x?.position ?? d.vi_tri_x ?? d.position?.x ?? 0);
         _sensorChart.data.datasets[1].data.push(axes.y?.position ?? d.vi_tri_y ?? d.position?.y ?? 0);
         _sensorChart.data.datasets[2].data.push(axes.z?.position ?? d.vi_tri_z ?? d.position?.z ?? 0);
+
+        // Velocity chart
+        if (_cVel) {
+            _cVel.data.labels.push(t);
+            _cVel.data.datasets[0].data.push(+(axes.x?.velocity ?? d.van_toc_x ?? 0));
+            _cVel.data.datasets[1].data.push(+(axes.y?.velocity ?? d.van_toc_y ?? 0));
+            _cVel.data.datasets[2].data.push(+(axes.z?.velocity ?? d.van_toc_z ?? 0));
+        }
+
+        // Moment chart
+        if (_cMom) {
+            _cMom.data.labels.push(t);
+            _cMom.data.datasets[0].data.push(+(axes.x?.torque ?? d.moment_x ?? 0));
+            _cMom.data.datasets[1].data.push(+(axes.y?.torque ?? d.moment_y ?? 0));
+            _cMom.data.datasets[2].data.push(+(axes.z?.torque ?? d.moment_z ?? 0));
+        }
+
+        // Current chart
+        if (_cCur) {
+            _cCur.data.labels.push(t);
+            _cCur.data.datasets[0].data.push(+(d.current?.rms ?? d.load ?? 0));
+        }
     });
-    _sensorChart.update();
+
+    charts.forEach(c => c.update());
 }
 
 function _renderSensorSummary(data) {
