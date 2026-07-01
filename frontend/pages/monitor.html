@@ -6,7 +6,6 @@
 <title>Giám Sát - CNC Smart System</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800&family=Be+Vietnam+Pro:wght@300;400;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/css/isa101.css">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <link rel="stylesheet" href="/static/css/ai.css">
 <link rel="stylesheet" href="/static/css/monitor.css">
 </head>
@@ -19,7 +18,7 @@
     </div>
     <div class="header-center">
         <div class="main-title">TÍNH TOÁN, THIẾT KẾ HỆ THỐNG ĐIỀU KHIỂN MÁY CNC ĐỂ BÀN TỰ CHỦ THÔNG MINH</div>
-        <div class="sub-title">GVHD: LÊ GIANG NAM — APS LAB — HUST</div>
+        <div class="sub-title">GVHD: LÊ GIANG NAM — VIMES LAB — HUST</div>
     </div>
     <img src="/static/images/vimes_logo.png" alt="Vimes" style="height:55px;width:auto;" onerror="this.src='https://via.placeholder.com/55x55?text=V'">
 </header>
@@ -59,154 +58,126 @@
 <!-- ══ MAIN ══ -->
 <main class="main-area">
 
-    <!-- Status bar top: trạng thái máy NGAY BÂY GIỜ -->
-    <div class="status-top">
-        <div class="st-state">
-            <div class="st-dot idle" id="stateDot"></div>
-            <span class="st-label" id="stateLabel">---</span>
+    <!-- ═══ ROW 1: STATUS + POSITION + SPEED + TORQUE + CURRENT + FEED + SPINDLE ═══ -->
+    <div class="status-row">
+        <!-- State -->
+        <div class="status-group">
+            <div class="status-state">
+                <div class="st-dot idle" id="stateDot"></div>
+                <span class="st-label" id="stateLabel">---</span>
+            </div>
         </div>
-        <span class="st-sep">|</span>
-        <div class="st-group">
-            <span class="st-val">X: <b id="posX">—</b> mm</span>
-            <span class="st-val">Y: <b id="posY">—</b> mm</span>
-            <span class="st-val">Z: <b id="posZ">—</b> mm</span>
+
+        <div class="status-divider"></div>
+
+        <!-- Position X Y Z -->
+        <div class="status-group">
+            <div class="status-item">
+                <span class="status-label">X</span>
+                <span class="status-value" id="posX">---</span>
+                <span class="status-unit">mm</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Y</span>
+                <span class="status-value" id="posY">---</span>
+                <span class="status-unit">mm</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Z</span>
+                <span class="status-value" id="posZ">---</span>
+                <span class="status-unit">mm</span>
+            </div>
         </div>
-        <span class="st-sep">|</span>
-        <div class="st-group">
-            <span class="st-val">⚡ Speed: <b id="speedVal">—</b> mm/s</span>
-            <span class="st-val">🔩 Torque: <b id="torqueVal">—</b> N·m</span>
-            <span class="st-val">⚡ Current: <b id="curVal">—</b> A</span>
+
+        <div class="status-divider"></div>
+
+        <!-- Speed + Torque + Current -->
+        <div class="status-group">
+            <div class="status-item">
+                <span class="status-label">⚡ Speed</span>
+                <span class="status-value" id="speedVal">---</span>
+                <span class="status-unit">mm/s</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">🔩 Torque</span>
+                <span class="status-value" id="torqueVal">---</span>
+                <span class="status-unit">N·m</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">⚡ Current</span>
+                <span class="status-value" id="curVal">---</span>
+                <span class="status-unit">A</span>
+            </div>
         </div>
-        <span class="st-sep">|</span>
-        <div class="st-group">
-            <span class="st-val">📊 Feed: <b id="feedVal">—</b> mm/min</span>
-            <span class="st-val">🔄 Spindle: <b id="spindleVal">—</b> rpm</span>
+
+        <div class="status-divider"></div>
+
+        <!-- Feed + Spindle -->
+        <div class="status-group">
+            <div class="status-item">
+                <span class="status-label">📊 Feed</span>
+                <span class="status-value" id="feedVal">---</span>
+                <span class="status-unit">mm/min</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">🔄 Spindle</span>
+                <span class="status-value" id="spindleVal">---</span>
+                <span class="status-unit">rpm</span>
+            </div>
         </div>
-        <span class="st-sep">|</span>
-        <span class="st-badge" id="toolBadge">—</span>
-        <span class="st-badge" id="matBadge">—</span>
-        <span class="st-badge" id="rangeBadge" style="margin-left:auto;">—</span>
-        <span style="font-size:9px;color:var(--text-muted);margin-left:6px;" id="lastUpdateTime">—</span>
+
+        <!-- Badge -->
+        <div class="status-group" style="margin-left:auto;">
+            <span class="st-badge" id="toolBadge">🔧 ---</span>
+            <span class="st-badge" id="matBadge">🧱 ---</span>
+            <span class="st-badge" id="rangeBadge">---</span>
+            <span class="st-time" id="lastUpdateTime">---</span>
+        </div>
     </div>
 
+    <!-- ═══ ROW 2: 3D VIEWER + ALARM TABLE ═══ -->
     <div class="monitor-body">
 
-        <!-- CỘT TRÁI: Charts -->
-        <div class="col-charts">
-
-            <!-- Bộ lọc thời gian + nguồn -->
-            <div class="ctrl-row">
-                <button class="ctrl-btn active" onclick="setTime(60,this)">1H</button>
-                <button class="ctrl-btn" onclick="setTime(360,this)">6H</button>
-                <button class="ctrl-btn" onclick="setTime(720,this)">12H</button>
-                <button class="ctrl-btn" onclick="setTime(1440,this)">1D</button>
+        <!-- 3D Viewer -->
+        <div class="viewer-wrap">
+            <div class="viewer-header">
+                <span>🎮 3D VIEWER</span>
+                <span class="load-pill" id="loadPill">🟢 Kết nối...</span>
             </div>
-            <div class="ctrl-row">
-                <button class="ctrl-btn active" onclick="setSource('physical',this)">📡 ESP32</button>
-                <button class="ctrl-btn" onclick="setSource('virtual',this)">🔬 MATLAB</button>
-                <button class="ctrl-btn" onclick="setSource('both',this)">⚡ Cả hai</button>
-            </div>
-
-            <!-- Chart vị trí -->
-            <div class="chart-card">
-                <div class="chart-header">
-                    <span class="chart-title">📍 VỊ TRÍ (mm)</span>
-                    <div class="chart-vals">
-                        <span class="cv-x">X: <b id="cvX">—</b></span>
-                        <span class="cv-y">Y: <b id="cvY">—</b></span>
-                        <span class="cv-z">Z: <b id="cvZ">—</b></span>
-                    </div>
-                </div>
-                <div class="leg">
-                    <span><span class="leg-dot" style="background:#e74c3c"></span>X</span>
-                    <span><span class="leg-dot" style="background:#00b894"></span>Y</span>
-                    <span><span class="leg-dot" style="background:#3498db"></span>Z</span>
-                </div>
-                <canvas id="chartPos" height="80"></canvas>
-            </div>
-
-            <!-- Chart vận tốc -->
-            <div class="chart-card">
-                <div class="chart-header">
-                    <span class="chart-title">⚡ VẬN TỐC (mm/s)</span>
-                    <div class="chart-vals">
-                        <span class="cv-x">Vx: <b id="cvVx">—</b></span>
-                        <span class="cv-y">Vy: <b id="cvVy">—</b></span>
-                        <span class="cv-z">Vz: <b id="cvVz">—</b></span>
-                    </div>
-                </div>
-                <canvas id="chartVel" height="70"></canvas>
-            </div>
-
-            <!-- Chart moment -->
-            <div class="chart-card">
-                <div class="chart-header">
-                    <span class="chart-title">🔩 MOMENT (N·m)</span>
-                    <div class="chart-vals">
-                        <span class="cv-x">Mx: <b id="cvMx">—</b></span>
-                        <span class="cv-y">My: <b id="cvMy">—</b></span>
-                        <span class="cv-z">Mz: <b id="cvMz">—</b></span>
-                    </div>
-                </div>
-                <canvas id="chartMom" height="70"></canvas>
-            </div>
-
-            <!-- Chart dòng điện (realtime, cập nhật 2s) -->
-            <div class="chart-card">
-                <div class="chart-header">
-                    <span class="chart-title">⚡ DÒNG ĐIỆN (A) — REALTIME</span>
-                    <div class="chart-vals">
-                        <span class="cv-i">I: <b id="cvI">—</b> A</span>
-                        <span style="font-size:9px;color:var(--text-muted);" id="currentStatus">—</span>
-                    </div>
-                </div>
-                <canvas id="chartCurrent" height="60"></canvas>
-                <div class="chart-info" id="chartInfo">🔄 Đang tải...</div>
-            </div>
-
+            <iframe id="cncFrame" src="/static/cnc_viewer.html" class="viewer-frame" allow="autoplay"></iframe>
         </div>
 
-        <!-- CỘT PHẢI: Alarm + 3D viewer -->
-        <div class="col-right">
-
-            <!-- Alarm panel -->
-            <div class="panel-title">
-                <span>🚨 CẢNH BÁO HIỆN TẠI</span>
-                <span style="font-size:9px;font-family:monospace;color:var(--text-muted);" id="alarmCount">—</span>
+        <!-- Alarm Table -->
+        <div class="alarm-wrap">
+            <div class="alarm-header">
+                <span>🚨 CẢNH BÁO & SỰ CỐ</span>
+                <span id="alarmCount">0 cảnh báo</span>
+                <button class="refresh-btn" onclick="fetchAlarms()">↺</button>
             </div>
-
             <div class="alarm-filters">
                 <button class="af-btn active" onclick="setAlarmFilter('all',this)">Tất cả</button>
-                <button class="af-btn" onclick="setAlarmFilter('warning',this)">⚠ Warn</button>
-                <button class="af-btn" onclick="setAlarmFilter('critical',this)">🛑 Crit</button>
-                <button class="af-btn" style="margin-left:auto;" onclick="fetchAlarms()">↺</button>
+                <button class="af-btn" onclick="setAlarmFilter('warning',this)">⚠ Cảnh báo</button>
+                <button class="af-btn" onclick="setAlarmFilter('critical',this)">🛑 Khẩn cấp</button>
             </div>
-
             <div class="alarm-table-wrap">
                 <table>
-                    <thead><tr>
-                        <th>MỨC</th>
-                        <th>NỘI DUNG</th>
-                        <th>GIỜ</th>
-                        <th>XỬ LÝ</th>
-                    </tr></thead>
+                    <thead>
+                        <tr>
+                            <th>LOẠI</th>
+                            <th>NỘI DUNG</th>
+                            <th>THỜI GIAN</th>
+                            <th>XỬ LÝ</th>
+                        </tr>
+                    </thead>
                     <tbody id="alarmBody">
                         <tr><td colspan="4"><div class="empty-state">🔄 Đang tải...</div></td></tr>
                     </tbody>
                 </table>
             </div>
-
-            <!-- 3D Viewer -->
-            <div class="viewer-wrap">
-                <div class="viewer-header">
-                    <span>🎮 3D VIEWER</span>
-                    <span class="load-pill" id="loadPill">🟢 Kết nối...</span>
-                </div>
-                <iframe id="cncFrame" src="/static/cnc_viewer.html" class="viewer-frame" allow="autoplay"></iframe>
-            </div>
-
         </div>
+
     </div>
+
 </main>
 
 <!-- ══ AI PANEL ══ -->
