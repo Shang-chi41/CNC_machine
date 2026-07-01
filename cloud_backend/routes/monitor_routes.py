@@ -117,17 +117,50 @@ def _minutes_ago_str(n: int) -> str:
     return (datetime.now(_VN_TZ) - timedelta(minutes=n)).isoformat()
 
 
+# Sau bao nhiêu giây không có bản ghi mới thì coi là "mất kết nối / chưa có dữ liệu".
+# edge_backend gửi dữ liệu thực ~100ms/lần, nên chỉ cần 2s là đủ để phân biệt
+# dữ liệu "đang sống" (mới cách đây 1-2s) với dữ liệu cũ (vài phút/giờ trước) còn sót trong DB.
+_SENSOR_STALE_SECONDS = 2
+
+
+def _doc_age_seconds(doc: dict) -> float | None:
+    """Tuổi (giây) của bản ghi, dựa vào mqtt_timestamp hoặc timestamp. None nếu không parse được."""
+    raw = doc.get("mqtt_timestamp") or doc.get("timestamp")
+    if not raw:
+        return None
+    try:
+        if isinstance(raw, datetime):
+            ts = raw
+        else:
+            ts = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=_VN_TZ)
+        return (datetime.now(timezone.utc) - ts.astimezone(timezone.utc)).total_seconds()
+    except (ValueError, TypeError):
+        return None
+
+
 # ── GET /api/monitor/sensor/latest ────────────────────────────────────────
 
 @router.get("/sensor/latest", summary="Sensor thực tế mới nhất (ESP32)")
 def sensor_latest(user: CurrentUser) -> dict:
-    """Trả về bản ghi sensor mới nhất từ ESP32 (collection Sensor_Data)."""
+    """Trả về bản ghi sensor mới nhất từ ESP32 (collection Sensor_Data).
+
+    Nếu bản ghi mới nhất đã quá cũ (thiết bị mất kết nối / chưa từng gửi dữ liệu
+    trong phiên hiện tại), trả về "no_data" thay vì số liệu đóng băng từ lần
+    chạy trước — tránh HMI hiển thị nhầm như đang có dữ liệu/tải thật.
+    """
     col = get_col(_COL_SENSOR)
     doc = col.find_one(sort=[("mqtt_timestamp", -1)])
     if not doc:
         doc = col.find_one(sort=[("timestamp", -1)])
     if not doc:
         return {"status": "no_data"}
+
+    age = _doc_age_seconds(doc)
+    if age is not None and age > _SENSOR_STALE_SECONDS:
+        return {"status": "no_data"}
+
     return _normalize_sensor(doc)
 
 
