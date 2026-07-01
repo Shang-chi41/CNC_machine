@@ -162,8 +162,18 @@ async function switchProv() {
     try {
         const r = await api.post('/api/ai/provider/switch', { provider: _selProv });
         _showMsg('aiMsg', '✅ ' + r.message, 'var(--status-active)');
-        setTimeout(fetchProvStatus, 3000);
-    } catch (e) { _showMsg('aiMsg', '❌ ' + e.message, 'var(--status-alarm)'); }
+        
+        // ⭐ GỌI HÀM REFRESH TỪ AI_CHAT.JS
+        // Import hoặc gọi window function
+        if (typeof refreshProviderBadge === 'function') {
+            await refreshProviderBadge();
+        } else {
+            // Fallback: load từ API
+            setTimeout(fetchProvStatus, 1000);
+        }
+    } catch (e) {
+        _showMsg('aiMsg', '❌ ' + e.message, 'var(--status-alarm)');
+    }
 }
 
 window.switchProv = switchProv;
