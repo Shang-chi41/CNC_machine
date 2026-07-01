@@ -9,14 +9,18 @@ import { auth } from '/static/js/auth.js';
 import { theme } from '/static/js/theme.js';
 import { api } from '/static/js/api.js';
 import { initAiChat, initSidebarStatus, initUserBar, initLogout } from '/static/js/ai_chat.js';
-import { DigitalTwinViewer } from '/static/js/digital_twin.js';
 
-// ⭐ 1. KHỞI TẠO THEME
+// =============================================
+// 3D TOOLPATH VIEWER - Three.js
+// =============================================
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ⭐ KHỞI TẠO THEME
 theme.init();
 
-// ⭐ 2. HELPER FUNCTIONS
+// ⭐ HELPER FUNCTIONS
 function _el(id) { return document.getElementById(id); }
-
 function _showCtrlMsg(msg, color) {
     const el = document.getElementById('ctrlMsg');
     if (el) {
@@ -25,12 +29,18 @@ function _showCtrlMsg(msg, color) {
     }
 }
 
-// ⭐ 3. BIẾN TOÀN CỤC
+// ⭐ BIẾN TOÀN CỤC
 let currentGCode = '';
 let _mode = 'manual';
-let _twin = null;
 
-// ⭐ 4. DOMContentLoaded - KHỞI TẠO TWIN TẠI ĐÂY
+// ⭐ 3D Toolpath Variables
+const WS = { xMin: -200, xMax: 200, yMin: -150, yMax: 150, zMin: -50, zMax: 50 };
+let tp3dRenderer = null, tp3dScene = null, tp3dCamera = null, tp3dOrbit = null;
+let tp3dLine = null, tp3dHeadMesh = null, tp3dPoints = [];
+let tp3dGridVisible = true, tp3dAxesVisible = true, tp3dBoxVisible = true;
+let tp3dSimInterval = null, tp3dSimIdx = 0, tp3dSimSpeed = 1.0;
+
+// ⭐ DOMContentLoaded
 document.addEventListener('DOMContentLoaded', () => {
     if (!auth.guard()) return;
 
@@ -39,30 +49,323 @@ document.addEventListener('DOMContentLoaded', () => {
     initSidebarStatus();
     initAiChat({ enableUpload: true, enableGcodeActions: true, onAfterChat: fetchGcodeList });
 
-    // ⭐ KHỞI TẠO TWIN TRONG DOMContentLoaded
-    _twin = new DigitalTwinViewer('toolpathFrame');
-    _twin.onToolpathRendered((points) => {
-        const el = document.getElementById('toolpathStatus');
-        if (el) el.textContent = `✅ Đã vẽ toolpath (${points} điểm)`;
-    });
-    _twin.onReady(() => {
-        console.log('✅ 3D Viewer ready');
-    });
-
     fetchMachineStatus();
     setInterval(fetchMachineStatus, 3000);
     fetchGcodeList();
     initFluidncConnection();
 
+    // ⭐ Khởi tạo 3D Toolpath
+    setTimeout(initToolpath3D, 100);
+
+    // ⭐ Speed slider
+    const slider = document.getElementById('simSpeedSlider');
+    const speedVal = document.getElementById('simSpeedValue');
+    if (slider && speedVal) {
+        slider.addEventListener('input', () => {
+            tp3dSimSpeed = parseFloat(slider.value);
+            speedVal.textContent = tp3dSimSpeed.toFixed(1) + 'x';
+            if (tp3dSimInterval) { tp3dStop(); tp3dSimulate(); }
+        });
+    }
+
     if (window.location.hash === '#ai') setMode('auto');
 });
 
-// ⭐ HÀM LẤY TWIN
-function getTwin() {
-    return _twin;
+// ═══════════════════════════════════════════════════════════════════════════
+// 3D TOOLPATH FUNCTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function initToolpath3D() {
+    const canvas = document.getElementById('toolpath3D');
+    if (!canvas) return;
+    
+    const parent = canvas.parentElement;
+    const W = parent.clientWidth || 600;
+    const H = parent.clientHeight || 400;
+    
+    const bgColor = getComputedStyle(document.documentElement)
+        .getPropertyValue('--gray-bg').trim() || '#C8CACF';
+    
+    tp3dRenderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    tp3dRenderer.setSize(W, H);
+    tp3dRenderer.setClearColor(bgColor, 1);
+    tp3dRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    
+    tp3dScene = new THREE.Scene();
+    tp3dScene.background = new THREE.Color(bgColor);
+    
+    tp3dCamera = new THREE.PerspectiveCamera(40, W/H, 1, 8000);
+    tp3dCamera.position.set(300, 350, 450);
+    
+    tp3dOrbit = new OrbitControls(tp3dCamera, canvas);
+    tp3dOrbit.enableDamping = true;
+    tp3dOrbit.dampingFactor = 0.06;
+    tp3dOrbit.target.set(0, 0, 0);
+    
+    // Lighting
+    tp3dScene.add(new THREE.AmbientLight(0xffffff, 0.7));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
+    dirLight.position.set(200, 400, 300);
+    tp3dScene.add(dirLight);
+    
+    buildAxes();
+    animate3D();
+    
+    // Resize
+    new ResizeObserver(() => {
+        const p = canvas.parentElement;
+        if (!p) return;
+        const w = p.clientWidth, h = p.clientHeight;
+        if (w > 0 && h > 0) {
+            tp3dRenderer.setSize(w, h);
+            tp3dCamera.aspect = w / h;
+            tp3dCamera.updateProjectionMatrix();
+        }
+    }).observe(parent);
 }
 
-// ── FluidNC WebUI ──────────────────────────────────────────────────────────
+function animate3D() {
+    requestAnimationFrame(animate3D);
+    if (tp3dOrbit) tp3dOrbit.update();
+    if (tp3dRenderer && tp3dScene && tp3dCamera) {
+        tp3dRenderer.render(tp3dScene, tp3dCamera);
+    }
+}
+
+function buildAxes() {
+    if (!tp3dScene) return;
+    
+    // Xóa các đối tượng cũ
+    const toRemove = [];
+    tp3dScene.children.forEach(child => {
+        if (child.userData?.isAxis) toRemove.push(child);
+    });
+    toRemove.forEach(child => tp3dScene.remove(child));
+    
+    // Grid
+    if (tp3dGridVisible) {
+        const grid = new THREE.GridHelper(400, 20, 0x9A9C9F, 0xB0B2B6);
+        grid.position.y = -50;
+        grid.userData.isAxis = true;
+        tp3dScene.add(grid);
+    }
+    
+    // Axes
+    if (tp3dAxesVisible) {
+        const axes = new THREE.AxesHelper(250);
+        axes.userData.isAxis = true;
+        tp3dScene.add(axes);
+    }
+    
+    // Box
+    if (tp3dBoxVisible) {
+        const boxGeo = new THREE.BoxGeometry(400, 100, 300);
+        const boxEdges = new THREE.EdgesGeometry(boxGeo);
+        const boxLine = new THREE.LineSegments(boxEdges, 
+            new THREE.LineBasicMaterial({ color: 0x9A9C9F, transparent: true, opacity: 0.3 })
+        );
+        boxLine.position.set(0, 0, 0);
+        boxLine.userData.isAxis = true;
+        tp3dScene.add(boxLine);
+    }
+}
+
+function extractToolpath(gcode) {
+    if (!gcode) return [];
+    const pts = [];
+    let x = 0, y = 0, z = 0;
+    let abs = true;
+    
+    const lines = gcode.split(/\r?\n/);
+    for (let line of lines) {
+        line = line.split(';')[0].split('(')[0].trim();
+        if (!line) continue;
+        
+        if (/^G90/i.test(line)) { abs = true; continue; }
+        if (/^G91/i.test(line)) { abs = false; continue; }
+        
+        const xM = line.match(/X([+-]?\d*\.?\d+)/i);
+        const yM = line.match(/Y([+-]?\d*\.?\d+)/i);
+        const zM = line.match(/Z([+-]?\d*\.?\d+)/i);
+        
+        if (xM) x = abs ? parseFloat(xM[1]) : x + parseFloat(xM[1]);
+        if (yM) y = abs ? parseFloat(yM[1]) : y + parseFloat(yM[1]);
+        if (zM) z = abs ? parseFloat(zM[1]) : z + parseFloat(zM[1]);
+        
+        if (xM || yM || zM) {
+            pts.push({
+                x: Math.max(WS.xMin, Math.min(WS.xMax, x)),
+                y: Math.max(WS.yMin, Math.min(WS.yMax, y)),
+                z: Math.max(WS.zMin, Math.min(WS.zMax, z))
+            });
+        }
+    }
+    return pts;
+}
+
+function buildToolpathLine(pts) {
+    if (!tp3dScene) return;
+    
+    if (tp3dLine) {
+        tp3dScene.remove(tp3dLine);
+        if (tp3dLine.geometry) tp3dLine.geometry.dispose();
+        tp3dLine = null;
+    }
+    if (tp3dHeadMesh) {
+        tp3dScene.remove(tp3dHeadMesh);
+        if (tp3dHeadMesh.geometry) tp3dHeadMesh.geometry.dispose();
+        if (tp3dHeadMesh.material) tp3dHeadMesh.material.dispose();
+        tp3dHeadMesh = null;
+    }
+    
+    if (!pts.length) return;
+    
+    const positions = [];
+    const colors = [];
+    
+    pts.forEach((p, i) => {
+        positions.push(p.x, p.z, -p.y);
+        const t = pts.length > 1 ? i / (pts.length - 1) : 0;
+        // Gradient: xanh -> cam
+        const r = 0x1E + (0xCC - 0x1E) * t;
+        const g = 0x5F + (0x66 - 0x5F) * t;
+        const b = 0xA8 + (0x00 - 0xA8) * t;
+        colors.push(r/255, g/255, b/255);
+    });
+    
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(colors), 3));
+    
+    tp3dLine = new THREE.Line(geo, new THREE.LineBasicMaterial({ vertexColors: true }));
+    tp3dScene.add(tp3dLine);
+    
+    // Head - điểm đầu
+    tp3dHeadMesh = new THREE.Mesh(
+        new THREE.SphereGeometry(3.5, 16, 16),
+        new THREE.MeshStandardMaterial({ color: 0xCC6600, emissive: 0xCC6600, emissiveIntensity: 0.3 })
+    );
+    tp3dHeadMesh.position.set(pts[0].x, pts[0].z, -pts[0].y);
+    tp3dScene.add(tp3dHeadMesh);
+    
+    // Hide overlay
+    const overlay = document.getElementById('tp3dOverlay');
+    if (overlay) overlay.style.display = 'none';
+    
+    // Update info
+    const xs = pts.map(p => p.x), ys = pts.map(p => p.y), zs = pts.map(p => p.z);
+    const infoEl = document.getElementById('tp3dInfo');
+    if (infoEl) {
+        infoEl.textContent = `${pts.length} điểm | X:${(Math.max(...xs)-Math.min(...xs)).toFixed(0)} Y:${(Math.max(...ys)-Math.min(...ys)).toFixed(0)} Z:${(Math.max(...zs)-Math.min(...zs)).toFixed(0)} mm`;
+    }
+}
+
+function updateToolpath(gcode) {
+    const pts = extractToolpath(gcode);
+    tp3dPoints = pts;
+    buildToolpathLine(pts);
+}
+
+function clearToolpath3D() {
+    if (tp3dLine) {
+        tp3dScene.remove(tp3dLine);
+        if (tp3dLine.geometry) tp3dLine.geometry.dispose();
+        tp3dLine = null;
+    }
+    if (tp3dHeadMesh) {
+        tp3dScene.remove(tp3dHeadMesh);
+        if (tp3dHeadMesh.geometry) tp3dHeadMesh.geometry.dispose();
+        if (tp3dHeadMesh.material) tp3dHeadMesh.material.dispose();
+        tp3dHeadMesh = null;
+    }
+    tp3dPoints = [];
+    const overlay = document.getElementById('tp3dOverlay');
+    if (overlay) overlay.style.display = 'flex';
+    const infoEl = document.getElementById('tp3dInfo');
+    if (infoEl) infoEl.textContent = 'Chưa có G-Code';
+}
+
+function tp3dToggleGrid() {
+    tp3dGridVisible = !tp3dGridVisible;
+    buildAxes();
+    if (tp3dLine) tp3dScene.add(tp3dLine);
+    if (tp3dHeadMesh) tp3dScene.add(tp3dHeadMesh);
+    const btn = document.getElementById('btnTpGrid');
+    if (btn) btn.classList.toggle('active', tp3dGridVisible);
+}
+
+function tp3dToggleAxes() {
+    tp3dAxesVisible = !tp3dAxesVisible;
+    buildAxes();
+    if (tp3dLine) tp3dScene.add(tp3dLine);
+    if (tp3dHeadMesh) tp3dScene.add(tp3dHeadMesh);
+    const btn = document.getElementById('btnTpAxes');
+    if (btn) btn.classList.toggle('active', tp3dAxesVisible);
+}
+
+function tp3dToggleBox() {
+    tp3dBoxVisible = !tp3dBoxVisible;
+    buildAxes();
+    if (tp3dLine) tp3dScene.add(tp3dLine);
+    if (tp3dHeadMesh) tp3dScene.add(tp3dHeadMesh);
+    const btn = document.getElementById('btnTpBox');
+    if (btn) btn.classList.toggle('active', tp3dBoxVisible);
+}
+
+function tp3dResetView() {
+    buildAxes();
+    if (tp3dLine) tp3dScene.add(tp3dLine);
+    if (tp3dHeadMesh) tp3dScene.add(tp3dHeadMesh);
+}
+
+function tp3dSimulate() {
+    if (!tp3dPoints.length) { 
+        _showCtrlMsg('⚠️ Chưa có G-Code để mô phỏng', 'var(--status-warning)');
+        return; 
+    }
+    if (tp3dSimInterval) clearInterval(tp3dSimInterval);
+    tp3dSimIdx = 0;
+    const total = tp3dPoints.length;
+    const delay = Math.max(10, Math.min(100, 30 / tp3dSimSpeed));
+    tp3dSimInterval = setInterval(() => {
+        if (tp3dSimIdx >= total) {
+            clearInterval(tp3dSimInterval);
+            tp3dSimInterval = null;
+            _showCtrlMsg('✅ Mô phỏng xong!', 'var(--status-active)');
+            return;
+        }
+        const p = tp3dPoints[tp3dSimIdx];
+        if (tp3dHeadMesh) tp3dHeadMesh.position.set(p.x, p.z, -p.y);
+        document.getElementById('tp3dX').textContent = p.x.toFixed(1);
+        document.getElementById('tp3dY').textContent = p.y.toFixed(1);
+        document.getElementById('tp3dZ').textContent = p.z.toFixed(1);
+        const pct = ((tp3dSimIdx+1)/total*100).toFixed(1);
+        document.getElementById('tp3dProgress').textContent = pct+'%';
+        document.getElementById('tp3dFill').style.width = pct+'%';
+        tp3dSimIdx++;
+    }, delay);
+}
+
+function tp3dStop() {
+    clearInterval(tp3dSimInterval);
+    tp3dSimInterval = null;
+}
+
+function tp3dResetSim() {
+    tp3dStop();
+    tp3dSimIdx = 0;
+    ['tp3dX','tp3dY','tp3dZ'].forEach(id => document.getElementById(id).textContent = '0');
+    document.getElementById('tp3dProgress').textContent = '0%';
+    document.getElementById('tp3dFill').style.width = '0%';
+    if (tp3dHeadMesh && tp3dPoints.length) {
+        tp3dHeadMesh.position.set(tp3dPoints[0].x, tp3dPoints[0].z, -tp3dPoints[0].y);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FLUIDNC CONNECTION
+// ═══════════════════════════════════════════════════════════════════════════
+
 const KEY_FLUIDNC_LAST = 'cnc_fluidnc_url';
 const KEY_FLUIDNC_SAVED = 'cnc_fluidnc_saved_urls';
 
@@ -132,8 +435,7 @@ function _fluidncSetStatus(state, url = '') {
     };
     const s = map[state] || map.disconnected;
 
-    if (badge) { badge.textContent = s.label;
-        badge.style.color = s.color; }
+    if (badge) { badge.textContent = s.label; badge.style.color = s.color; }
     if (dot) dot.style.background = s.color;
     if (text) text.textContent = s.label;
     if (urlEl) urlEl.textContent = url;
@@ -208,7 +510,10 @@ window.onManualFrameError = function () {
     _fluidncSetStatus('error');
 };
 
-// ── Mode toggle ───────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// MODE TOGGLE
+// ═══════════════════════════════════════════════════════════════════════════
+
 window.setMode = function (mode) {
     _mode = mode;
     document.getElementById('modeManual').classList.toggle('active', mode === 'manual');
@@ -218,7 +523,10 @@ window.setMode = function (mode) {
     if (mode === 'auto') fetchGcodeList();
 };
 
-// ── Machine status ────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// MACHINE STATUS
+// ═══════════════════════════════════════════════════════════════════════════
+
 async function fetchMachineStatus() {
     try {
         const d = await api.get('/api/control/status');
@@ -236,14 +544,13 @@ async function fetchMachineStatus() {
         _el('autoY').textContent = (pos.y || 0).toFixed(2);
         _el('autoZ').textContent = (pos.z || 0).toFixed(2);
         _el('autoI').textContent = curA.toFixed(2);
-
-        // ⭐ DÙNG getTwin() THAY VÌ twin TRỰC TIẾP
-        const twin = getTwin();
-        if (twin) twin.updateLoad(curA * 20);
     } catch (_) {}
 }
 
-// ── G-Code list ───────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// G-CODE LIST
+// ═══════════════════════════════════════════════════════════════════════════
+
 async function fetchGcodeList() {
     try {
         const data = await api.get('/api/gcode/history', { limit: 20 });
@@ -304,19 +611,20 @@ async function runGcode(id, btn) {
     }
 }
 
-async function previewGcode(id) {
+function previewGcode(id) {
+    // Sử dụng 3D toolpath
     document.getElementById('toolpathStatus').textContent = `Đang load G-code ${id.slice(-6)}...`;
-    try {
-        const doc = await api.get(`/api/gcode/${id}`);
-        const content = doc?.gcode || '';
-        if (!content) throw new Error('G-code rỗng');
-
-        const twin = getTwin();
-        if (twin) twin.renderToolpath(content);
-        document.getElementById('toolpathStatus').textContent = `Đang vẽ toolpath ${id.slice(-6)}...`;
-    } catch (e) {
-        document.getElementById('toolpathStatus').textContent = `❌ ${e.message}`;
-    }
+    fetch(`/api/gcode/${id}`)
+        .then(r => r.json())
+        .then(doc => {
+            const content = doc?.gcode || '';
+            if (!content) throw new Error('G-code rỗng');
+            updateToolpath(content);
+            document.getElementById('toolpathStatus').textContent = `✅ Đã vẽ toolpath ${id.slice(-6)}`;
+        })
+        .catch(e => {
+            document.getElementById('toolpathStatus').textContent = `❌ ${e.message}`;
+        });
 }
 
 window.fetchGcodeList = fetchGcodeList;
@@ -324,7 +632,10 @@ window.confirmGcode = confirmGcode;
 window.runGcode = runGcode;
 window.previewGcode = previewGcode;
 
-// ── Quick actions ─────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// QUICK ACTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
 window.sendCmd = async function (action) {
     _showCtrlMsg(`⚡ ${action}...`, 'var(--status-warning)');
     try {
@@ -336,7 +647,10 @@ window.sendCmd = async function (action) {
     }
 };
 
-// ── ESTOP ─────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// ESTOP
+// ═══════════════════════════════════════════════════════════════════════════
+
 window.sendEstop = async function () {
     if (!confirm('⚠️ DỪNG KHẨN CẤP?\nMáy sẽ dừng ngay lập tức!')) return;
     const btn = document.getElementById('estopFab');
@@ -350,7 +664,10 @@ window.sendEstop = async function () {
     btn.style.animation = '';
 };
 
-// ── Jog ───────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// JOG
+// ═══════════════════════════════════════════════════════════════════════════
+
 window.jog = async function (axis, dir) {
     const dist = parseFloat(document.getElementById('jogDist').value) * dir;
     const feed = parseFloat(document.getElementById('jogFeed').value);
@@ -362,9 +679,10 @@ window.jog = async function (axis, dir) {
     }
 };
 
-// ===== G-CODE từ AI =====
+// ═══════════════════════════════════════════════════════════════════════════
+// G-CODE FROM AI
+// ═══════════════════════════════════════════════════════════════════════════
 
-// Lưu G-code từ AI vào preview
 function setGCodeFromAI(gcode) {
     currentGCode = gcode;
     const preview = document.getElementById('gcodePreview');
@@ -374,11 +692,10 @@ function setGCodeFromAI(gcode) {
     const btn = document.getElementById('downloadBtn');
     if (btn) btn.disabled = false;
 
-    const twin = getTwin();
-    if (twin) twin.renderToolpath(gcode);
+    // ⭐ Cập nhật 3D toolpath
+    updateToolpath(gcode);
 }
 
-// Download G-code
 function downloadGCode() {
     if (!currentGCode) { alert('Chưa có G-Code'); return; }
     const a = document.createElement('a');
@@ -387,7 +704,6 @@ function downloadGCode() {
     a.click();
 }
 
-// Clear G-code
 function clearGCode() {
     currentGCode = '';
     const preview = document.getElementById('gcodePreview');
@@ -395,16 +711,10 @@ function clearGCode() {
     const btn = document.getElementById('downloadBtn');
     if (btn) btn.disabled = true;
 
-    const twin = getTwin();
-    if (twin) twin.clearToolpath();
-
-    const info = document.getElementById('tp3dInfo');
-    const overlay = document.getElementById('tp3dOverlay');
-    if (info) info.textContent = 'Chưa có G-Code';
-    if (overlay) overlay.style.display = 'flex';
+    // ⭐ Xóa 3D toolpath
+    clearToolpath3D();
 }
 
-// Gửi G-code lên queue
 async function sendGcodeToQueue() {
     if (!currentGCode) { alert('Chưa có G-Code để gửi'); return; }
     try {
@@ -420,7 +730,10 @@ async function sendGcodeToQueue() {
     }
 }
 
-// ===== NẠP FILE G-CODE =====
+// ═══════════════════════════════════════════════════════════════════════════
+// NẠP FILE G-CODE
+// ═══════════════════════════════════════════════════════════════════════════
+
 document.addEventListener('DOMContentLoaded', () => {
     const gcFileInput = document.getElementById('gcFileInput');
     const gcUploadArea = document.getElementById('gcUploadArea');
@@ -441,14 +754,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (gcFileInput) {
         gcFileInput.addEventListener('change', e => {
             if (e.target.files[0]) loadGCodeFile(e.target.files[0]);
-        });
-    }
-
-    const slider = document.getElementById('simSpeedSlider');
-    const speedVal = document.getElementById('simSpeedValue');
-    if (slider && speedVal) {
-        slider.addEventListener('input', () => {
-            speedVal.textContent = parseFloat(slider.value).toFixed(1) + 'x';
         });
     }
 });
@@ -480,14 +785,13 @@ function loadGCodeFile(file) {
         if (gcFileInfo) gcFileInfo.style.display = 'block';
         if (askAiBtn) askAiBtn.style.display = 'block';
 
-        const twin = getTwin();
-        if (twin) twin.renderToolpath(text);
+        // ⭐ Cập nhật 3D toolpath
+        updateToolpath(text);
         _showCtrlMsg(`✅ Đã nạp ${file.name}`, 'var(--status-active)');
     };
     r.readAsText(file);
 }
 
-// Hỏi AI về G-code
 function askAiAboutGCode() {
     if (!currentGCode) return;
     const input = document.getElementById('aiIn');
@@ -497,27 +801,10 @@ function askAiAboutGCode() {
     }
 }
 
-// Stub functions cho toolpath 3D
-function tp3dToggleGrid() { toggleTpBtn('btnTpGrid'); }
+// ═══════════════════════════════════════════════════════════════════════════
+// EXPORT
+// ═══════════════════════════════════════════════════════════════════════════
 
-function tp3dToggleAxes() { toggleTpBtn('btnTpAxes'); }
-
-function tp3dToggleBox() { toggleTpBtn('btnTpBox'); }
-
-function tp3dResetView() {}
-
-function tp3dSimulate() {}
-
-function tp3dStop() {}
-
-function tp3dResetSim() {}
-
-function toggleTpBtn(id) {
-    const btn = document.getElementById(id);
-    if (btn) btn.classList.toggle('active');
-}
-
-// ===== EXPORT =====
 window.setGCodeFromAI = setGCodeFromAI;
 window.downloadGCode = downloadGCode;
 window.clearGCode = clearGCode;
