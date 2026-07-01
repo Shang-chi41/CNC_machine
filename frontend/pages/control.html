@@ -18,7 +18,7 @@
     </div>
     <div class="header-center">
         <div class="main-title">TÍNH TOÁN, THIẾT KẾ HỆ THỐNG ĐIỀU KHIỂN MÁY CNC ĐỂ BÀN TỰ CHỦ THÔNG MINH</div>
-        <div class="sub-title">GVHD: LÊ GIANG NAM — APS LAB — HUST</div>
+        <div class="sub-title">GVHD: LÊ GIANG NAM — VIMES LAB — HUST</div>
     </div>
     <img src="/static/images/vimes_logo.png" alt="Vimes" style="height:55px;width:auto;" onerror="this.src='https://via.placeholder.com/55x55?text=V'">
 </header>
@@ -67,11 +67,11 @@
     <!-- Mode toggle bar -->
     <div class="mode-bar">
         <button class="mode-btn active" id="btnManual" onclick="setMode('manual')">🕹️ THỦ CÔNG</button>
-        <button class="mode-btn"        id="btnAuto"   onclick="setMode('auto')">🤖 TỰ ĐỘNG / AI</button>
+        <button class="mode-btn" id="btnAuto" onclick="setMode('auto')">🤖 TỰ ĐỘNG / AI</button>
         <div class="mode-status">
             <div class="ms-dot idle" id="machDot"></div>
             <span id="machState" style="font-family:monospace;font-size:11px;color:var(--text-secondary);">---</span>
-            <span id="machPos"   style="font-family:monospace;font-size:10px;color:var(--text-muted);">X:— Y:— Z:—</span>
+            <span id="machPos" style="font-family:monospace;font-size:10px;color:var(--text-muted);">X:— Y:— Z:—</span>
         </div>
     </div>
 
@@ -129,7 +129,6 @@
         <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
     </div>
 
-    <!-- ══ AUTO MODE ══ -->
     <!-- ══ AUTO MODE ══ -->
     <div class="mode-content" id="modeAuto">
         <div class="auto-layout">
@@ -198,7 +197,7 @@
                 <div class="msg-bar" id="ctrlMsg">✅ Sẵn sàng</div>
             </div>
 
-            <!-- CỘT GIỮA: 3D Toolpath -->
+            <!-- CỘT GIỮA: 3D Toolpath (Three.js trực tiếp) -->
             <div class="auto-center">
                 <div class="card" style="height:100%;display:flex;flex-direction:column;">
                     <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
@@ -210,7 +209,7 @@
                             <button class="tp-btn" onclick="tp3dResetView()">⟳ RESET</button>
                         </div>
                     </div>
-                    <div class="toolpath-wrap">
+                    <div class="toolpath-wrap" id="toolpathWrap">
                         <canvas id="toolpath3D"></canvas>
                         <div id="tp3dOverlay" class="tp-overlay">
                             <div class="tp-overlay-icon">🛤️</div>
@@ -287,6 +286,15 @@
 </aside>
 
 </div>
+
+<script type="importmap">
+{
+    "imports": {
+        "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+    }
+}
+</script>
 
 <script type="module" src="/static/js/control.js"></script>
 </body>
