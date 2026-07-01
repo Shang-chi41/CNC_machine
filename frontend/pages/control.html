@@ -67,11 +67,11 @@
     <!-- Mode toggle bar -->
     <div class="mode-bar">
         <button class="mode-btn active" id="btnManual" onclick="setMode('manual')">🕹️ THỦ CÔNG</button>
-        <button class="mode-btn" id="btnAuto" onclick="setMode('auto')">🤖 TỰ ĐỘNG / AI</button>
+        <button class="mode-btn"        id="btnAuto"   onclick="setMode('auto')">🤖 TỰ ĐỘNG / AI</button>
         <div class="mode-status">
             <div class="ms-dot idle" id="machDot"></div>
             <span id="machState" style="font-family:monospace;font-size:11px;color:var(--text-secondary);">---</span>
-            <span id="machPos" style="font-family:monospace;font-size:10px;color:var(--text-muted);">X:— Y:— Z:—</span>
+            <span id="machPos"   style="font-family:monospace;font-size:10px;color:var(--text-muted);">X:— Y:— Z:—</span>
         </div>
     </div>
 
@@ -129,6 +129,7 @@
         <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
     </div>
 
+    <!-- ══ AUTO MODE ══ -->
     <!-- ══ AUTO MODE ══ -->
     <div class="mode-content" id="modeAuto">
         <div class="auto-layout">
@@ -203,38 +204,50 @@
                     <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
                         <span>🛤️ ĐƯỜNG CHẠY DAO 3D</span>
                         <div class="tp-controls">
+                            <span id="tp3dInfo" style="font-size:10px;color:var(--text-muted);">Chưa có G-Code</span>
                             <button class="tp-btn active" id="btnTpGrid" onclick="tp3dToggleGrid()">GRID</button>
                             <button class="tp-btn active" id="btnTpAxes" onclick="tp3dToggleAxes()">AXES</button>
                             <button class="tp-btn active" id="btnTpBox" onclick="tp3dToggleBox()">BOX</button>
-                            <button class="tp-btn" onclick="tp3dResetView()">⟳ RESET</button>
+                            <button class="tp-btn active" id="btnTpZPlane" onclick="tp3dToggleZPlane()">Z-PLANE</button>
+                            <button class="tp-btn" style="background:var(--status-alarm);color:white;border-color:var(--status-alarm);" onclick="tp3dReset()">⟳ RESET</button>
                         </div>
                     </div>
-                    <div class="toolpath-wrap" id="toolpathWrap">
+                    <div class="toolpath-wrap">
                         <canvas id="toolpath3D"></canvas>
-                        <!-- Overlay -->
-                        <div id="tp3dOverlay" class="tp-overlay visible">
+                        <div id="tp3dOverlay" class="tp-overlay">
                             <div class="tp-overlay-icon">🛤️</div>
-                            <div class="tp-overlay-text">Chưa có G-Code</div>
-                            <div class="tp-overlay-hint">Chat AI hoặc nạp file .nc để hiển thị đường chạy dao</div>
-                            <div class="tp-overlay-hint" style="font-size:10px;color:var(--text-muted);opacity:0.5;margin-top:4px;">
-                                Không gian: X:±200, Y:±150, Z:±50 mm
-                            </div>
+                            <div class="tp-overlay-text">Chat AI hoặc nạp file G-Code</div>
+                            <div class="tp-overlay-hint">Không gian: X:±200, Y:±150, Z:±50 mm</div>
                         </div>
                     </div>
-                    <div class="tp-info">
-                        <span id="tp3dInfo">Chưa có G-Code</span>
-                        <span>X:<span id="tp3dX" style="color:#e74c3c;">0</span> Y:<span id="tp3dY" style="color:#2ecc71;">0</span> Z:<span id="tp3dZ" style="color:#3498db;">0</span> mm</span>
-                    </div>
-                    <div class="tp-progress"><div class="tp-progress-fill" id="tp3dFill"></div></div>
+                    <!-- Nút mô phỏng -->
                     <div class="tp-sim-controls">
                         <button class="btn btn-success" onclick="tp3dSimulate()">▶ MÔ PHỎNG</button>
                         <button class="btn btn-danger" onclick="tp3dStop()">⏹ DỪNG</button>
                         <button class="btn btn-warning" onclick="tp3dResetSim()">⟳ RESET</button>
-                        <div class="tp-speed">
-                            <span>⚡ <span id="simSpeedValue">1.0x</span></span>
+                    </div>
+                    <!-- Thanh tốc độ mô phỏng đầy đủ -->
+                    <div class="tp-speed-block">
+                        <div class="tp-speed-header">
+                            <span class="tp-speed-label">⚡ TỐC ĐỘ MÔ PHỎNG</span>
+                            <span id="simSpeedValue" class="tp-speed-val">1.0x</span>
+                        </div>
+                        <div class="slider-track">
+                            <div class="slider-fill" id="simSpeedFill" style="width:50%;"></div>
                             <input type="range" id="simSpeedSlider" min="0.2" max="3" step="0.02" value="1.0">
                         </div>
+                        <div class="tp-speed-labels">
+                            <span>Chậm (0.2x)</span>
+                            <span>Bình thường (1x)</span>
+                            <span>Nhanh (3x)</span>
+                        </div>
                     </div>
+                    <!-- Tiến trình + tọa độ -->
+                    <div class="tp-info">
+                        <span>Tiến trình: <span id="tp3dProgress">0%</span></span>
+                        <span style="font-family:monospace;">X:<span id="tp3dX" style="color:#e74c3c;">0</span> Y:<span id="tp3dY" style="color:#2ecc71;">0</span> Z:<span id="tp3dZ" style="color:#3498db;">0</span> mm</span>
+                    </div>
+                    <div class="tp-progress"><div class="tp-progress-fill" id="tp3dFill"></div></div>
                 </div>
             </div>
 
@@ -290,15 +303,6 @@
 </aside>
 
 </div>
-
-<script type="importmap">
-{
-    "imports": {
-        "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
-        "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
-    }
-}
-</script>
 
 <script type="module" src="/static/js/control.js"></script>
 </body>
