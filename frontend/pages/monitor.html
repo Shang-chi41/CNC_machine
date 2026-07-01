@@ -58,111 +58,126 @@
 <!-- ══ MAIN ══ -->
 <main class="main-area">
 
-    <!-- ══ STATUS ROW - SỐ LIỆU REALTIME DẠNG BẢNG ══ -->
-    <div class="status-row">
-        
-        <!-- Cột 1: Trạng thái -->
-        <div class="status-col">
-            <div class="status-state">
-                <div class="st-dot idle" id="stateDot"></div>
-                <span class="st-label" id="stateLabel">---</span>
+    <!-- ══ HMI STATUS BAR ══ -->
+    <div class="hmi-bar">
+        <!-- Trạng thái máy -->
+        <div class="hmi-machine-state">
+            <div class="st-dot idle" id="stateDot"></div>
+            <span class="st-label" id="stateLabel">---</span>
+        </div>
+
+        <div class="hmi-vdiv"></div>
+
+        <!-- Trục X -->
+        <div class="hmi-axis-group ax-x">
+            <div class="hmi-axis-title">X</div>
+            <div class="hmi-axis-row">
+                <div class="hmi-cell">
+                    <span class="hmi-lbl">POS</span>
+                    <span class="hmi-val" id="posX">---</span>
+                    <span class="hmi-unit">mm</span>
+                </div>
+                <div class="hmi-cell">
+                    <span class="hmi-lbl">VEL</span>
+                    <span class="hmi-val" id="axVelX">---</span>
+                    <span class="hmi-unit">mm/s</span>
+                </div>
+                <div class="hmi-cell">
+                    <span class="hmi-lbl">TRQ</span>
+                    <span class="hmi-val" id="axTorX">---</span>
+                    <span class="hmi-unit">N·m</span>
+                </div>
             </div>
         </div>
 
-        <!-- Cột 2: Vị trí 3 trục -->
-        <div class="status-col">
-            <div class="status-item">
-                <span class="status-label">📍 Vị trí X</span>
-                <span class="status-value" id="posX">---</span>
-                <span class="status-unit">mm</span>
-            </div>
-            <div class="status-item">
-                <span class="status-label">📍 Vị trí Y</span>
-                <span class="status-value" id="posY">---</span>
-                <span class="status-unit">mm</span>
-            </div>
-            <div class="status-item">
-                <span class="status-label">📍 Vị trí Z</span>
-                <span class="status-value" id="posZ">---</span>
-                <span class="status-unit">mm</span>
+        <div class="hmi-vdiv"></div>
+
+        <!-- Trục Y -->
+        <div class="hmi-axis-group ax-y">
+            <div class="hmi-axis-title">Y</div>
+            <div class="hmi-axis-row">
+                <div class="hmi-cell">
+                    <span class="hmi-lbl">POS</span>
+                    <span class="hmi-val" id="posY">---</span>
+                    <span class="hmi-unit">mm</span>
+                </div>
+                <div class="hmi-cell">
+                    <span class="hmi-lbl">VEL</span>
+                    <span class="hmi-val" id="axVelY">---</span>
+                    <span class="hmi-unit">mm/s</span>
+                </div>
+                <div class="hmi-cell">
+                    <span class="hmi-lbl">TRQ</span>
+                    <span class="hmi-val" id="axTorY">---</span>
+                    <span class="hmi-unit">N·m</span>
+                </div>
             </div>
         </div>
 
-        <!-- Cột 3: Vận tốc 3 trục -->
-        <div class="status-col">
-            <div class="status-item">
-                <span class="status-label">⚡ Vận tốc X</span>
-                <span class="status-value" id="velX">---</span>
-                <span class="status-unit">mm/s</span>
-            </div>
-            <div class="status-item">
-                <span class="status-label">⚡ Vận tốc Y</span>
-                <span class="status-value" id="velY">---</span>
-                <span class="status-unit">mm/s</span>
-            </div>
-            <div class="status-item">
-                <span class="status-label">⚡ Vận tốc Z</span>
-                <span class="status-value" id="velZ">---</span>
-                <span class="status-unit">mm/s</span>
+        <div class="hmi-vdiv"></div>
+
+        <!-- Trục Z -->
+        <div class="hmi-axis-group ax-z">
+            <div class="hmi-axis-title">Z</div>
+            <div class="hmi-axis-row">
+                <div class="hmi-cell">
+                    <span class="hmi-lbl">POS</span>
+                    <span class="hmi-val" id="posZ">---</span>
+                    <span class="hmi-unit">mm</span>
+                </div>
+                <div class="hmi-cell">
+                    <span class="hmi-lbl">VEL</span>
+                    <span class="hmi-val" id="axVelZ">---</span>
+                    <span class="hmi-unit">mm/s</span>
+                </div>
+                <div class="hmi-cell">
+                    <span class="hmi-lbl">TRQ</span>
+                    <span class="hmi-val" id="axTorZ">---</span>
+                    <span class="hmi-unit">N·m</span>
+                </div>
             </div>
         </div>
 
-        <!-- Cột 4: Moment 3 trục -->
-        <div class="status-col">
-            <div class="status-item">
-                <span class="status-label">🔩 Moment X</span>
-                <span class="status-value" id="momX">---</span>
-                <span class="status-unit">N·m</span>
+        <div class="hmi-vdiv"></div>
+
+        <!-- Dòng điện / Feed / Spindle -->
+        <div class="hmi-misc-group">
+            <div class="hmi-cell wide">
+                <span class="hmi-lbl">⚡ CURRENT</span>
+                <span class="hmi-val accent" id="curVal">---</span>
+                <span class="hmi-unit">A</span>
             </div>
-            <div class="status-item">
-                <span class="status-label">🔩 Moment Y</span>
-                <span class="status-value" id="momY">---</span>
-                <span class="status-unit">N·m</span>
+            <div class="hmi-cell wide">
+                <span class="hmi-lbl">📊 FEED</span>
+                <span class="hmi-val" id="feedVal">---</span>
+                <span class="hmi-unit">mm/min</span>
             </div>
-            <div class="status-item">
-                <span class="status-label">🔩 Moment Z</span>
-                <span class="status-value" id="momZ">---</span>
-                <span class="status-unit">N·m</span>
+            <div class="hmi-cell wide">
+                <span class="hmi-lbl">🔄 SPINDLE</span>
+                <span class="hmi-val" id="spindleVal">---</span>
+                <span class="hmi-unit">rpm</span>
             </div>
         </div>
 
-        <!-- Cột 5: Dòng điện / Feedrate / Spindle -->
-        <div class="status-col">
-            <div class="status-item">
-                <span class="status-label">⚡ Dòng điện</span>
-                <span class="status-value" id="curVal">---</span>
-                <span class="status-unit">A</span>
-            </div>
-            <div class="status-item">
-                <span class="status-label">📊 Feedrate</span>
-                <span class="status-value" id="feedVal">---</span>
-                <span class="status-unit">mm/min</span>
-            </div>
-            <div class="status-item">
-                <span class="status-label">🔄 Spindle</span>
-                <span class="status-value" id="spindleVal">---</span>
-                <span class="status-unit">rpm</span>
-            </div>
-        </div>
+        <div class="hmi-vdiv"></div>
 
-        <!-- Cột 6: Badge -->
-        <div class="status-col">
+        <!-- Info badges + time -->
+        <div class="hmi-info-group">
             <span class="st-badge" id="toolBadge">🔧 ---</span>
             <span class="st-badge" id="matBadge">🧱 ---</span>
             <span class="st-badge" id="rangeBadge">---</span>
+            <span class="hmi-load-pill" id="loadPill">⚪ ---</span>
             <span class="st-time" id="lastUpdateTime">---</span>
         </div>
-
     </div>
 
-    <!-- ══ BODY: 3D Viewer + Alarm (2 cột) ══ -->
+    <!-- ══ BODY: 3D Viewer + Alarm ══ -->
     <div class="monitor-body">
 
         <!-- 3D Viewer -->
         <div class="viewer-wrap">
             <div class="viewer-header">
                 <span>🎮 3D VIEWER</span>
-                <span class="load-pill" id="loadPill">🟢 Kết nối...</span>
             </div>
             <iframe id="cncFrame" src="/static/cnc_viewer.html" class="viewer-frame" allow="autoplay"></iframe>
         </div>
@@ -196,6 +211,17 @@
             </div>
         </div>
 
+    </div>
+
+    <!-- ══ FOOTER BAR ══ -->
+    <div class="hmi-footer">
+        <span id="toolBadgeF" class="hmi-footer-item">🔧 Tool: ---</span>
+        <span class="hmi-footer-sep">|</span>
+        <span id="matBadgeF" class="hmi-footer-item">🧱 Vật liệu: ---</span>
+        <span class="hmi-footer-sep">|</span>
+        <span id="rangeBadgeF" class="hmi-footer-item">⚡ Range: ---</span>
+        <span class="hmi-footer-sep">|</span>
+        <span class="hmi-footer-item muted">Cập nhật: <span id="lastUpdateTimeF">---</span></span>
     </div>
 
 </main>
