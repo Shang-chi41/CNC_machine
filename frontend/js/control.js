@@ -3,10 +3,6 @@
  * Logic cho trang Control (Dieu Khien): toggle Manual/Auto, machine status
  * realtime, danh sach G-code (confirm/run/preview), quick actions (home/stop/
  * resume/unlock), ESTOP, Jog.
- *
- * AI Chat panel su dung component dung chung js/ai_chat.js, kich hoat
- * enableUpload + enableGcodeActions vi trang nay can upload anh phoi va
- * luu/preview G-code AI sinh ra.
  */
 
 import { auth } from '/static/js/auth.js';
@@ -14,9 +10,11 @@ import { theme } from '/static/js/theme.js';
 import { api } from '/static/js/api.js';
 import { initAiChat, initSidebarStatus, initUserBar, initLogout } from '/static/js/ai_chat.js';
 import { DigitalTwinViewer } from '/static/js/digital_twin.js';
+
+// ⭐ 1. KHỞI TẠO THEME
 theme.init();
 
-// ⭐ 2. HELPER FUNCTIONS (phải khai báo TRƯỚC khi dùng)
+// ⭐ 2. HELPER FUNCTIONS
 function _el(id) { return document.getElementById(id); }
 function _showCtrlMsg(msg, color) { 
     const el = document.getElementById('ctrlMsg'); 
@@ -50,62 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.location.hash === '#ai') setMode('auto');
 });
 
-// Đăng ký callback khi toolpath được vẽ xong
-twin.onToolpathRendered((points) => {
-    const el = document.getElementById('toolpathStatus');
-    if (el) el.textContent = `✅ Đã vẽ toolpath (${points} điểm)`;
-});
-
-// Hàm preview G-code
-async function previewGcode(id) {
-    document.getElementById('toolpathStatus').textContent = `Đang load G-code ${id.slice(-6)}...`;
-    try {
-        const doc = await api.get(`/api/gcode/${id}`);
-        const content = doc?.gcode || '';
-        if (!content) throw new Error('G-code rỗng');
-        
-        // Gửi lên viewer để vẽ
-        twin.renderToolpath(content);
-        document.getElementById('toolpathStatus').textContent = `Đang vẽ toolpath ${id.slice(-6)}...`;
-    } catch (e) {
-        document.getElementById('toolpathStatus').textContent = `❌ ${e.message}`;
-    }
-}
-
-// Khi clear G-code
-function clearGCode() {
-    // ... code clear
-    twin.clearToolpath();
-}
-
-// Khi nhận G-code từ AI
-function setGCodeFromAI(gcode) {
-    // ... code set preview
-    twin.renderToolpath(gcode);
-}
-
-// Khi trang unload, dọn dẹp
-window.addEventListener('beforeunload', () => {
-    twin.destroy();
-});
-
-document.addEventListener('DOMContentLoaded', () => {
-    if (!auth.guard()) return;
-
-    initUserBar(auth);
-    initLogout(auth);
-    initSidebarStatus();
-    initAiChat({ enableUpload: true, enableGcodeActions: true, onAfterChat: fetchGcodeList });
-
-    fetchMachineStatus(); setInterval(fetchMachineStatus, 3000);
-    fetchGcodeList();
-    initFluidncConnection();
-
-    // Neu co hash #ai -> chuyen sang auto mode
-    if (window.location.hash === '#ai') setMode('auto');
-});
-
-// ── FluidNC WebUI: kết nối, lưu URL, trạng thái (lưu theo trình duyệt) ─────
+// ── FluidNC WebUI ──────────────────────────────────────────────────────────
 const KEY_FLUIDNC_LAST  = 'cnc_fluidnc_url';
 const KEY_FLUIDNC_SAVED = 'cnc_fluidnc_saved_urls';
 
@@ -335,7 +278,6 @@ async function previewGcode(id) {
         const doc = await api.get(`/api/gcode/${id}`);
         const content = doc?.gcode || '';
         if (!content) throw new Error('G-code rỗng');
-        // Iframe không có JWT nên không tự gọi API được — gửi thẳng nội dung qua DigitalTwinViewer.
         twin.renderToolpath(content);
         document.getElementById('toolpathStatus').textContent = `Đang vẽ toolpath ${id.slice(-6)}...`;
     } catch (e) {
@@ -380,26 +322,20 @@ window.jog = async function (axis, dir) {
     } catch (e) { _showCtrlMsg('❌ ' + e.message, 'var(--status-alarm)'); }
 };
 
-// ── Helper ────────────────────────────────────────────────────────────────
-function _el(id) { return document.getElementById(id); }
-function _showCtrlMsg(msg, color) { const el = document.getElementById('ctrlMsg'); if (el) { el.textContent = msg; el.style.color = color || 'var(--text-secondary)'; } }
 // ===== G-CODE từ AI =====
 let currentGCode = '';
 
-// Lưu G-code từ AI vào preview
 function setGCodeFromAI(gcode) {
     currentGCode = gcode;
-    document.getElementById('gcodePreview').innerHTML =
-        `<pre style="margin:0;white-space:pre-wrap;font-size:10px;">${gcode}</pre>`;
-    document.getElementById('downloadBtn').disabled = false;
-
-    // Cập nhật 3D toolpath
-    if (typeof updateToolpath === 'function') {
-        updateToolpath(gcode);
+    const preview = document.getElementById('gcodePreview');
+    if (preview) {
+        preview.innerHTML = `<pre style="margin:0;white-space:pre-wrap;font-size:10px;">${gcode}</pre>`;
     }
+    const btn = document.getElementById('downloadBtn');
+    if (btn) btn.disabled = false;
+    twin.renderToolpath(gcode);
 }
 
-// Download G-code
 function downloadGCode() {
     if (!currentGCode) { alert('Chưa có G-Code'); return; }
     const a = document.createElement('a');
@@ -408,23 +344,23 @@ function downloadGCode() {
     a.click();
 }
 
-// Clear G-code
 function clearGCode() {
     currentGCode = '';
-    document.getElementById('gcodePreview').innerHTML = '⏳ Chưa có G-Code';
-    document.getElementById('downloadBtn').disabled = true;
-    if (typeof clearToolpath === 'function') clearToolpath();
+    const preview = document.getElementById('gcodePreview');
+    if (preview) preview.innerHTML = '⏳ Chưa có G-Code';
+    const btn = document.getElementById('downloadBtn');
+    if (btn) btn.disabled = true;
+    twin.clearToolpath();
     const info = document.getElementById('tp3dInfo');
     const overlay = document.getElementById('tp3dOverlay');
     if (info) info.textContent = 'Chưa có G-Code';
     if (overlay) overlay.style.display = 'flex';
 }
 
-// Gửi G-code lên queue
 async function sendGcodeToQueue() {
     if (!currentGCode) { alert('Chưa có G-Code để gửi'); return; }
     try {
-        const res = await api.post('/api/gcode/save', {
+        await api.post('/api/gcode/save', {
             content: currentGCode,
             source: 'ai',
             filename: `ai_gcode_${Date.now()}.nc`
@@ -460,7 +396,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Speed slider
     const slider = document.getElementById('simSpeedSlider');
     const speedVal = document.getElementById('simSpeedValue');
     if (slider && speedVal) {
@@ -479,9 +414,12 @@ function loadGCodeFile(file) {
     r.onload = e => {
         const text = e.target.result;
         currentGCode = text;
-        document.getElementById('gcodePreview').innerHTML =
-            `<pre style="margin:0;white-space:pre-wrap;font-size:10px;">${text.slice(0,800)}${text.length>800?'\n...(còn nữa)':''}</pre>`;
-        document.getElementById('downloadBtn').disabled = false;
+        const preview = document.getElementById('gcodePreview');
+        if (preview) {
+            preview.innerHTML = `<pre style="margin:0;white-space:pre-wrap;font-size:10px;">${text.slice(0,800)}${text.length>800?'\n...(còn nữa)':''}</pre>`;
+        }
+        const btn = document.getElementById('downloadBtn');
+        if (btn) btn.disabled = false;
 
         const gcFileName = document.getElementById('gcFileName');
         const gcLineCount = document.getElementById('gcLineCount');
@@ -493,16 +431,12 @@ function loadGCodeFile(file) {
         if (gcFileInfo) gcFileInfo.style.display = 'block';
         if (askAiBtn) askAiBtn.style.display = 'block';
 
-        // Cập nhật 3D toolpath
-        if (typeof updateToolpath === 'function') {
-            updateToolpath(text);
-        }
+        twin.renderToolpath(text);
         _showCtrlMsg(`✅ Đã nạp ${file.name}`, 'var(--status-active)');
     };
     r.readAsText(file);
 }
 
-// Hỏi AI về G-code
 function askAiAboutGCode() {
     if (!currentGCode) return;
     const input = document.getElementById('aiIn');
@@ -512,7 +446,7 @@ function askAiAboutGCode() {
     }
 }
 
-// Stub functions cho toolpath 3D (cần file toolpath3d.js riêng nếu có)
+// Stub functions
 function tp3dToggleGrid() { toggleTpBtn('btnTpGrid'); }
 function tp3dToggleAxes() { toggleTpBtn('btnTpAxes'); }
 function tp3dToggleBox()  { toggleTpBtn('btnTpBox'); }
