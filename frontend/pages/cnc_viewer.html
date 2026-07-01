@@ -1280,12 +1280,13 @@ init();
 // =============================================
 // THÔNG BÁO SẴN SÀNG CHO PARENT
 // =============================================
-window.addEventListener('load', () => {
-    if (window.parent !== window) {
-        window.parent.postMessage({ type: 'viewer_ready' }, '*');
+window.addEventListener('message', ev => {
+    if (ev.data?.type === 'ping') {
+        if (window.parent !== window) {
+            window.parent.postMessage({ type: 'pong' }, '*');
+        }
     }
 });
-
 // Export functions để parent có thể gọi
 window.renderToolpath = renderToolpath;
 window.clearToolpath = clearToolpath;
