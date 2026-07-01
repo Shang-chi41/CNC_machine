@@ -41,7 +41,33 @@ body { flex-direction:column; overflow:hidden; height:100vh; }
 .leg-dot { width:10px; height:10px; border-radius:2px; display:inline-block; margin-right:4px; }
 
 /* ── Table ── */
-.table-wrap { flex:1; overflow-y:auto; border:1px solid var(--gray-border); border-radius:6px; background:var(--gray-card); }
+/* ── Table with scroll ── */
+.table-wrap { 
+    flex: 1; 
+    overflow-y: auto; 
+    border: 1px solid var(--gray-border); 
+    border-radius: 6px; 
+    background: var(--gray-card);
+    max-height: 450px;
+    min-height: 200px;
+}
+
+/* Scrollbar styles */
+.table-wrap::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+.table-wrap::-webkit-scrollbar-track {
+    background: var(--gray-bg);
+    border-radius: 4px;
+}
+.table-wrap::-webkit-scrollbar-thumb {
+    background: var(--gray-border);
+    border-radius: 4px;
+}
+.table-wrap::-webkit-scrollbar-thumb:hover {
+    background: var(--cyan-portal);
+}
 table { width:100%; border-collapse:collapse; font-size:11px; }
 thead th { position:sticky; top:0; z-index:5; background:var(--gray-sidebar); color:var(--cyan-portal); font-family:'Orbitron',monospace; font-size:9px; font-weight:600; letter-spacing:0.8px; padding:9px 8px; text-align:left; border-bottom:1px solid var(--gray-border); white-space:nowrap; }
 tbody tr { border-bottom:1px solid rgba(30,95,168,0.06); transition:var(--transition); }
