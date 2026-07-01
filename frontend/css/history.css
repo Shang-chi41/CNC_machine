@@ -83,3 +83,18 @@ tbody td { padding:8px 8px; color:var(--text-secondary); vertical-align:middle; 
 .pag-btn:hover { border-color:var(--cyan-portal); color:var(--cyan-portal); }
 .pag-btn.active { background:var(--cyan-portal); color:white; border-color:var(--cyan-portal); }
 .pag-info { font-size:10px; color:var(--text-muted); }
+/* ── Chart header/title (thêm cho multi-chart view) ── */
+.chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.chart-title {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-weight: 600;
+    letter-spacing: 1px;
+    font-family: 'Orbitron', monospace;
+}
