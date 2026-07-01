@@ -10,41 +10,419 @@ import { theme } from '/static/js/theme.js';
 import { api } from '/static/js/api.js';
 import { initAiChat, initSidebarStatus, initUserBar, initLogout } from '/static/js/ai_chat.js';
 
-// ⭐ 1. KHỞI TẠO THEME (safe to run immediately)
+// =============================================
+// 3D TOOLPATH VIEWER - Three.js
+// =============================================
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ⭐ KHỞI TẠO THEME
 theme.init();
 
-// ⭐ 2. HELPER FUNCTIONS
+// ⭐ HELPER FUNCTIONS
 function _el(id) { return document.getElementById(id); }
-function _showCtrlMsg(msg, color) { 
-    const el = document.getElementById('ctrlMsg'); 
-    if (el) { 
-        el.textContent = msg; 
-        el.style.color = color || 'var(--text-secondary)'; 
-    } 
+
+function _showCtrlMsg(msg, color) {
+    const el = document.getElementById('ctrlMsg');
+    if (el) {
+        el.textContent = msg;
+        el.style.color = color || 'var(--text-secondary)';
+    }
 }
 
-// ⭐ 3. G-Code state
+// ⭐ BIẾN TOÀN CỤC
 let currentGCode = '';
+let _mode = 'manual';
 
-// ⭐ 4. DOMContentLoaded — mọi khởi tạo DOM phải nằm trong đây
+// ⭐ 3D Toolpath Variables
+const WS = { xMin: -200, xMax: 200, yMin: -150, yMax: 150, zMin: -50, zMax: 50 };
+let tp3dRenderer = null, tp3dScene = null, tp3dCamera = null, tp3dOrbit = null;
+let tp3dLine = null, tp3dHeadMesh = null, tp3dPoints = [];
+let tp3dGridVisible = true, tp3dAxesVisible = true, tp3dBoxVisible = true, tp3dZPlaneVisible = true;
+let tp3dSimInterval = null, tp3dSimIdx = 0, tp3dSimSpeed = 1.0;
+
+// ⭐ DOMContentLoaded
 document.addEventListener('DOMContentLoaded', () => {
     if (!auth.guard()) return;
 
     initUserBar(auth);
     initLogout(auth);
     initSidebarStatus();
-    initAiChat({ enableUpload: true, enableGcodeActions: true, onAfterChat: fetchGcodeList, context: 'control' });
+    initAiChat({ enableUpload: true, enableGcodeActions: true, onAfterChat: fetchGcodeList });
 
-    fetchMachineStatus(); 
+    fetchMachineStatus();
     setInterval(fetchMachineStatus, 3000);
     fetchGcodeList();
     initFluidncConnection();
-    _initFileUpload();
+
+    // ⭐ Khởi tạo 3D Toolpath
+    setTimeout(initToolpath3D, 100);
+
+    // ⭐ Speed slider — cập nhật cả fill lẫn giá trị
+    const slider    = _el('simSpeedSlider');
+    const speedVal  = _el('simSpeedValue');
+    const speedFill = _el('simSpeedFill');
+    if (slider) {
+        slider.addEventListener('input', () => {
+            tp3dSimSpeed = parseFloat(slider.value);
+            if (speedVal)  speedVal.textContent  = tp3dSimSpeed.toFixed(1) + 'x';
+            if (speedFill) {
+                const pct = ((tp3dSimSpeed - 0.2) / (3 - 0.2)) * 100;
+                speedFill.style.width = pct + '%';
+            }
+            if (tp3dSimInterval) { tp3dStop(); tp3dSimulate(); }
+        });
+    }
 
     if (window.location.hash === '#ai') setMode('auto');
 });
 
-// ── FluidNC WebUI ──────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// 3D TOOLPATH FUNCTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function initToolpath3D() {
+    const canvas = document.getElementById('toolpath3D');
+    if (!canvas) return;
+
+    const parent = canvas.parentElement;
+    const W = parent.clientWidth || 600;
+    const H = parent.clientHeight || 480;
+
+    const bgColor = getComputedStyle(document.documentElement)
+        .getPropertyValue('--gray-bg').trim() || '#C8CACF';
+
+    tp3dRenderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    tp3dRenderer.setSize(W, H);
+    tp3dRenderer.setClearColor(bgColor, 1);
+    tp3dRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    tp3dScene = new THREE.Scene();
+    tp3dScene.background = new THREE.Color(bgColor);
+
+    tp3dCamera = new THREE.PerspectiveCamera(40, W/H, 1, 8000);
+    tp3dCamera.position.set(300, 350, 450);
+
+    tp3dOrbit = new OrbitControls(tp3dCamera, canvas);
+    tp3dOrbit.enableDamping = true;
+    tp3dOrbit.dampingFactor = 0.06;
+    tp3dOrbit.target.set(0, 0, 0);
+
+    // Lighting
+    tp3dScene.add(new THREE.AmbientLight(0xffffff, 0.7));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
+    dirLight.position.set(200, 400, 300);
+    tp3dScene.add(dirLight);
+
+    buildAxes();
+    animate3D();
+
+    // Resize
+    new ResizeObserver(() => {
+        const p = canvas.parentElement;
+        if (!p) return;
+        const w = p.clientWidth, h = p.clientHeight;
+        if (w > 0 && h > 0) {
+            tp3dRenderer.setSize(w, h);
+            tp3dCamera.aspect = w / h;
+            tp3dCamera.updateProjectionMatrix();
+        }
+    }).observe(parent);
+}
+
+function animate3D() {
+    requestAnimationFrame(animate3D);
+    if (tp3dOrbit) tp3dOrbit.update();
+    if (tp3dRenderer && tp3dScene && tp3dCamera) {
+        tp3dRenderer.render(tp3dScene, tp3dCamera);
+    }
+}
+
+function buildAxes() {
+    if (!tp3dScene) return;
+
+    // Xóa các đối tượng cũ
+    const toRemove = [];
+    tp3dScene.children.forEach(child => {
+        if (child.userData?.isAxis) toRemove.push(child);
+    });
+    toRemove.forEach(child => tp3dScene.remove(child));
+
+    // Grid
+    if (tp3dGridVisible) {
+        const grid = new THREE.GridHelper(400, 20, 0x9A9C9F, 0xB0B2B6);
+        grid.position.y = -50;
+        grid.userData.isAxis = true;
+        tp3dScene.add(grid);
+    }
+
+    // ⭐ AXES
+    if (tp3dAxesVisible) {
+        const axesLength = 250, arrowHeadLength = 10, arrowHeadWidth = 6;
+
+        const arrowX = new THREE.ArrowHelper(
+            new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, -50, 0),
+            axesLength, 0xe74c3c, arrowHeadLength, arrowHeadWidth
+        );
+        arrowX.userData.isAxis = true;
+        tp3dScene.add(arrowX);
+
+        const arrowY = new THREE.ArrowHelper(
+            new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, -50, 0),
+            axesLength, 0x2ecc71, arrowHeadLength, arrowHeadWidth
+        );
+        arrowY.userData.isAxis = true;
+        tp3dScene.add(arrowY);
+
+        const arrowZ = new THREE.ArrowHelper(
+            new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, -50, 0),
+            axesLength, 0x1E5FA8, arrowHeadLength, arrowHeadWidth
+        );
+        arrowZ.userData.isAxis = true;
+        tp3dScene.add(arrowZ);
+    }
+
+    // Box
+    if (tp3dBoxVisible) {
+        const boxGeo = new THREE.BoxGeometry(400, 100, 300);
+        const boxEdges = new THREE.EdgesGeometry(boxGeo);
+        const boxLine = new THREE.LineSegments(boxEdges,
+            new THREE.LineBasicMaterial({ color: 0x9A9C9F, transparent: true, opacity: 0.3 })
+        );
+        boxLine.position.set(0, 0, 0);
+        boxLine.userData.isAxis = true;
+        tp3dScene.add(boxLine);
+    }
+
+    // ⭐ Z-Plane (mặt phẳng Z=0)
+    if (tp3dZPlaneVisible) {
+        const planeGeo  = new THREE.PlaneGeometry(400, 300);
+        const planeMat  = new THREE.MeshBasicMaterial({
+            color: 0x1E5FA8, transparent: true, opacity: 0.06,
+            side: THREE.DoubleSide, depthWrite: false
+        });
+        const planeMesh = new THREE.Mesh(planeGeo, planeMat);
+        planeMesh.rotation.x = -Math.PI / 2;
+        planeMesh.position.y = -50;
+        planeMesh.userData.isAxis = true;
+        tp3dScene.add(planeMesh);
+    }
+}
+
+function extractToolpath(gcode) {
+    if (!gcode) return [];
+    const pts = [];
+    let x = 0, y = 0, z = 0;
+    let abs = true;
+
+    const lines = gcode.split(/\r?\n/);
+    for (let line of lines) {
+        line = line.split(';')[0].split('(')[0].trim();
+        if (!line) continue;
+
+        if (/^G90/i.test(line)) { abs = true;  continue; }
+        if (/^G91/i.test(line)) { abs = false; continue; }
+
+        const xM = line.match(/X([+-]?\d*\.?\d+)/i);
+        const yM = line.match(/Y([+-]?\d*\.?\d+)/i);
+        const zM = line.match(/Z([+-]?\d*\.?\d+)/i);
+
+        if (xM) x = abs ? parseFloat(xM[1]) : x + parseFloat(xM[1]);
+        if (yM) y = abs ? parseFloat(yM[1]) : y + parseFloat(yM[1]);
+        if (zM) z = abs ? parseFloat(zM[1]) : z + parseFloat(zM[1]);
+
+        if (xM || yM || zM) {
+            pts.push({
+                x: Math.max(WS.xMin, Math.min(WS.xMax, x)),
+                y: Math.max(WS.yMin, Math.min(WS.yMax, y)),
+                z: Math.max(WS.zMin, Math.min(WS.zMax, z))
+            });
+        }
+    }
+    return pts;
+}
+
+function buildToolpathLine(pts) {
+    if (!tp3dScene) return;
+
+    if (tp3dLine) {
+        tp3dScene.remove(tp3dLine);
+        if (tp3dLine.geometry) tp3dLine.geometry.dispose();
+        tp3dLine = null;
+    }
+    if (tp3dHeadMesh) {
+        tp3dScene.remove(tp3dHeadMesh);
+        if (tp3dHeadMesh.geometry) tp3dHeadMesh.geometry.dispose();
+        if (tp3dHeadMesh.material) tp3dHeadMesh.material.dispose();
+        tp3dHeadMesh = null;
+    }
+
+    if (!pts.length) {
+        showToolpathOverlay();
+        return;
+    }
+
+    const positions = [];
+    const colors    = [];
+
+    pts.forEach((p, i) => {
+        positions.push(p.x, p.z, -p.y);
+        const t = pts.length > 1 ? i / (pts.length - 1) : 0;
+        const r = 0x1E + (0xCC - 0x1E) * t;
+        const g = 0x5F + (0x66 - 0x5F) * t;
+        const b = 0xA8 + (0x00 - 0xA8) * t;
+        colors.push(r/255, g/255, b/255);
+    });
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
+    geo.setAttribute('color',    new THREE.BufferAttribute(new Float32Array(colors),    3));
+
+    tp3dLine = new THREE.Line(geo, new THREE.LineBasicMaterial({ vertexColors: true }));
+    tp3dScene.add(tp3dLine);
+
+    tp3dHeadMesh = new THREE.Mesh(
+        new THREE.SphereGeometry(3.5, 16, 16),
+        new THREE.MeshStandardMaterial({ color: 0xCC6600, emissive: 0xCC6600, emissiveIntensity: 0.3 })
+    );
+    tp3dHeadMesh.position.set(pts[0].x, pts[0].z, -pts[0].y);
+    tp3dScene.add(tp3dHeadMesh);
+
+    hideToolpathOverlay();
+
+    // Update info
+    const xs = pts.map(p => p.x), ys = pts.map(p => p.y), zs = pts.map(p => p.z);
+    const infoEl = _el('tp3dInfo');
+    if (infoEl) {
+        infoEl.textContent = `${pts.length} điểm | X:${(Math.max(...xs)-Math.min(...xs)).toFixed(0)} Y:${(Math.max(...ys)-Math.min(...ys)).toFixed(0)} Z:${(Math.max(...zs)-Math.min(...zs)).toFixed(0)} mm`;
+    }
+}
+
+function updateToolpath(gcode) {
+    const pts = extractToolpath(gcode);
+    tp3dPoints = pts;
+    buildToolpathLine(pts);
+}
+
+function clearToolpath3D() {
+    if (tp3dLine) {
+        tp3dScene.remove(tp3dLine);
+        if (tp3dLine.geometry) tp3dLine.geometry.dispose();
+        tp3dLine = null;
+    }
+    if (tp3dHeadMesh) {
+        tp3dScene.remove(tp3dHeadMesh);
+        if (tp3dHeadMesh.geometry) tp3dHeadMesh.geometry.dispose();
+        if (tp3dHeadMesh.material) tp3dHeadMesh.material.dispose();
+        tp3dHeadMesh = null;
+    }
+    tp3dPoints = [];
+    showToolpathOverlay();
+    const infoEl = _el('tp3dInfo');
+    if (infoEl) infoEl.textContent = 'Chưa có G-Code';
+}
+
+// ⭐ OVERLAY
+function showToolpathOverlay() {
+    const o = _el('tp3dOverlay');
+    if (o) { o.classList.remove('hidden'); o.classList.add('visible'); }
+}
+function hideToolpathOverlay() {
+    const o = _el('tp3dOverlay');
+    if (o) { o.classList.remove('visible'); o.classList.add('hidden'); }
+}
+
+// ─── Toggle helpers ───────────────────────────────────────────────────────
+function _rebuildAndReattach() {
+    buildAxes();
+    if (tp3dLine)     tp3dScene.add(tp3dLine);
+    if (tp3dHeadMesh) tp3dScene.add(tp3dHeadMesh);
+}
+
+function tp3dToggleGrid() {
+    tp3dGridVisible = !tp3dGridVisible;
+    _rebuildAndReattach();
+    const btn = _el('btnTpGrid');
+    if (btn) btn.classList.toggle('active', tp3dGridVisible);
+}
+
+function tp3dToggleAxes() {
+    tp3dAxesVisible = !tp3dAxesVisible;
+    _rebuildAndReattach();
+    const btn = _el('btnTpAxes');
+    if (btn) btn.classList.toggle('active', tp3dAxesVisible);
+}
+
+function tp3dToggleBox() {
+    tp3dBoxVisible = !tp3dBoxVisible;
+    _rebuildAndReattach();
+    const btn = _el('btnTpBox');
+    if (btn) btn.classList.toggle('active', tp3dBoxVisible);
+}
+
+// ⭐ Z-PLANE toggle (mới thêm)
+function tp3dToggleZPlane() {
+    tp3dZPlaneVisible = !tp3dZPlaneVisible;
+    _rebuildAndReattach();
+    const btn = _el('btnTpZPlane');
+    if (btn) btn.classList.toggle('active', tp3dZPlaneVisible);
+}
+
+// ⭐ RESET về view ban đầu (tên đúng như HTML gọi)
+function tp3dReset() {
+    _rebuildAndReattach();
+    if (tp3dCamera) tp3dCamera.position.set(300, 350, 450);
+    if (tp3dOrbit)  { tp3dOrbit.target.set(0, 0, 0); tp3dOrbit.update(); }
+}
+
+function tp3dSimulate() {
+    if (!tp3dPoints.length) {
+        _showCtrlMsg('⚠️ Chưa có G-Code để mô phỏng', 'var(--status-warning)');
+        return;
+    }
+    if (tp3dSimInterval) clearInterval(tp3dSimInterval);
+    tp3dSimIdx = 0;
+    const total = tp3dPoints.length;
+    const delay = Math.max(10, Math.min(100, 30 / tp3dSimSpeed));
+    tp3dSimInterval = setInterval(() => {
+        if (tp3dSimIdx >= total) {
+            clearInterval(tp3dSimInterval);
+            tp3dSimInterval = null;
+            _showCtrlMsg('✅ Mô phỏng xong!', 'var(--status-active)');
+            return;
+        }
+        const p = tp3dPoints[tp3dSimIdx];
+        if (tp3dHeadMesh) tp3dHeadMesh.position.set(p.x, p.z, -p.y);
+        _el('tp3dX').textContent = p.x.toFixed(1);
+        _el('tp3dY').textContent = p.y.toFixed(1);
+        _el('tp3dZ').textContent = p.z.toFixed(1);
+        const pct = ((tp3dSimIdx + 1) / total * 100).toFixed(1);
+        _el('tp3dProgress').textContent = pct + '%';
+        _el('tp3dFill').style.width = pct + '%';
+        tp3dSimIdx++;
+    }, delay);
+}
+
+function tp3dStop() {
+    clearInterval(tp3dSimInterval);
+    tp3dSimInterval = null;
+}
+
+function tp3dResetSim() {
+    tp3dStop();
+    tp3dSimIdx = 0;
+    ['tp3dX', 'tp3dY', 'tp3dZ'].forEach(id => { const el = _el(id); if (el) el.textContent = '0'; });
+    const prog = _el('tp3dProgress'); if (prog) prog.textContent = '0%';
+    const fill = _el('tp3dFill');     if (fill) fill.style.width = '0%';
+    if (tp3dHeadMesh && tp3dPoints.length) {
+        tp3dHeadMesh.position.set(tp3dPoints[0].x, tp3dPoints[0].z, -tp3dPoints[0].y);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FLUIDNC CONNECTION
+// ═══════════════════════════════════════════════════════════════════════════
+
 const KEY_FLUIDNC_LAST  = 'cnc_fluidnc_url';
 const KEY_FLUIDNC_SAVED = 'cnc_fluidnc_saved_urls';
 
@@ -54,7 +432,7 @@ function _fluidncSavedUrls() {
 }
 
 function _fluidncRenderSaved() {
-    const wrap = document.getElementById('savedUrlsList');
+    const wrap = _el('savedUrlsList');
     if (!wrap) return;
     const urls = _fluidncSavedUrls();
     if (!urls.length) {
@@ -88,8 +466,7 @@ function initFluidncConnection() {
     _fluidncRenderSaved();
     const last = localStorage.getItem(KEY_FLUIDNC_LAST);
     if (last) {
-        const inp = document.getElementById('deviceUrl');
-        if (inp) inp.value = last;
+        _el('deviceUrl').value = last;
         _fluidncLoad(last);
     }
 }
@@ -102,19 +479,17 @@ function _fluidncNormalize(raw) {
 }
 
 function _fluidncSetStatus(state, url = '') {
-    const badge = document.getElementById('connectionStatus');
-    const dot   = document.getElementById('manualStatusDot');
-    const text  = document.getElementById('manualStatusText');
-    const urlEl = document.getElementById('manualStatusUrl');
-
-    const map = {
+    const badge = _el('connectionStatus');
+    const dot   = _el('manualStatusDot');
+    const text  = _el('manualStatusText');
+    const urlEl = _el('manualStatusUrl');
+    const map   = {
         connecting:   { label: 'Đang kết nối...', color: 'var(--status-warning)' },
         connected:    { label: 'Đã kết nối',      color: 'var(--status-active)'  },
         error:        { label: 'Lỗi kết nối',     color: 'var(--status-alarm)'   },
         disconnected: { label: 'Chưa kết nối',    color: 'var(--text-muted)'     },
     };
     const s = map[state] || map.disconnected;
-
     if (badge) { badge.textContent = s.label; badge.style.color = s.color; }
     if (dot)   dot.style.background = s.color;
     if (text)  text.textContent = s.label;
@@ -122,24 +497,21 @@ function _fluidncSetStatus(state, url = '') {
 }
 
 function _fluidncLoad(url) {
-    const frame   = document.getElementById('fluidncFrame');
-    const empty   = document.getElementById('manualEmpty');
-    const loading = document.getElementById('manualLoading');
-    const error   = document.getElementById('manualError');
-    if (!frame) return;
-
-    if (empty)   empty.style.display   = 'none';
-    if (error)   error.style.display   = 'none';
-    if (loading) loading.style.display = 'flex';
-    frame.style.display = 'none';
-
+    const frame   = _el('fluidncFrame');
+    const empty   = _el('manualEmpty');
+    const loading = _el('manualLoading');
+    const error   = _el('manualError');
+    empty.style.display   = 'none';
+    error.style.display   = 'none';
+    loading.style.display = 'flex';
+    frame.style.display   = 'none';
     _fluidncSetStatus('connecting', url);
     frame.src = url;
 }
 
 window.connectToDevice = function () {
-    const input = document.getElementById('deviceUrl');
-    const url = _fluidncNormalize(input?.value || '');
+    const input = _el('deviceUrl');
+    const url   = _fluidncNormalize(input.value);
     if (!url) { _fluidncSetStatus('disconnected'); return; }
     localStorage.setItem(KEY_FLUIDNC_LAST, url);
     _fluidncSaveUrl(url);
@@ -147,8 +519,7 @@ window.connectToDevice = function () {
 };
 
 window.quickConnect = function (url) {
-    const inp = document.getElementById('deviceUrl');
-    if (inp) inp.value = url;
+    _el('deviceUrl').value = url;
     localStorage.setItem(KEY_FLUIDNC_LAST, url);
     _fluidncSaveUrl(url);
     _fluidncLoad(url);
@@ -160,101 +531,96 @@ window.retryManual = function () {
 };
 
 window.openConnectionInNewTab = function () {
-    const url = localStorage.getItem(KEY_FLUIDNC_LAST) || _fluidncNormalize(document.getElementById('deviceUrl')?.value || '');
+    const url = localStorage.getItem(KEY_FLUIDNC_LAST) || _fluidncNormalize(_el('deviceUrl').value);
     if (url) window.open(url, '_blank');
 };
 
 window.closeConnection = function () {
-    const frame = document.getElementById('fluidncFrame');
-    if (frame) { frame.src = 'about:blank'; frame.style.display = 'none'; }
-    const loading = document.getElementById('manualLoading');
-    const error   = document.getElementById('manualError');
-    const empty   = document.getElementById('manualEmpty');
-    if (loading) loading.style.display = 'none';
-    if (error)   error.style.display   = 'none';
-    if (empty)   empty.style.display   = 'flex';
+    const frame = _el('fluidncFrame');
+    frame.src = 'about:blank';
+    frame.style.display = 'none';
+    _el('manualLoading').style.display = 'none';
+    _el('manualError').style.display   = 'none';
+    _el('manualEmpty').style.display   = 'flex';
     localStorage.removeItem(KEY_FLUIDNC_LAST);
     _fluidncSetStatus('disconnected');
 };
 
 window.onManualFrameLoad = function () {
-    const loading = document.getElementById('manualLoading');
-    const frame   = document.getElementById('fluidncFrame');
-    if (loading) loading.style.display = 'none';
-    if (frame)   frame.style.display   = 'block';
+    _el('manualLoading').style.display = 'none';
+    _el('fluidncFrame').style.display  = 'block';
     const url = localStorage.getItem(KEY_FLUIDNC_LAST) || '';
     _fluidncSetStatus('connected', url);
 };
 
 window.onManualFrameError = function () {
-    const loading = document.getElementById('manualLoading');
-    const frame   = document.getElementById('fluidncFrame');
-    const errMsg  = document.getElementById('manualErrMsg');
-    const error   = document.getElementById('manualError');
-    if (loading) loading.style.display = 'none';
-    if (frame)   frame.style.display   = 'none';
-    if (errMsg)  errMsg.textContent = 'Không thể tải giao diện FluidNC. Kiểm tra lại IP/URL và đảm bảo bạn đang cùng mạng LAN với máy CNC.';
-    if (error)   error.style.display   = 'flex';
+    _el('manualLoading').style.display = 'none';
+    _el('fluidncFrame').style.display  = 'none';
+    _el('manualErrMsg').textContent    =
+        'Không thể tải giao diện FluidNC. Kiểm tra lại IP/URL và đảm bảo bạn đang cùng mạng LAN với máy CNC.';
+    _el('manualError').style.display = 'flex';
     _fluidncSetStatus('error');
 };
 
-// ── Mode toggle ───────────────────────────────────────────────────────────
-let _mode = 'manual';
+// ═══════════════════════════════════════════════════════════════════════════
+// MODE TOGGLE
+// ═══════════════════════════════════════════════════════════════════════════
+
 window.setMode = function (mode) {
     _mode = mode;
-    _el('modeManual')?.classList.toggle('active', mode === 'manual');
-    _el('modeAuto')?.classList.toggle('active', mode === 'auto');
-    _el('btnManual')?.classList.toggle('active', mode === 'manual');
-    _el('btnAuto')?.classList.toggle('active', mode === 'auto');
+    _el('modeManual').classList.toggle('active', mode === 'manual');
+    _el('modeAuto').classList.toggle('active',   mode === 'auto');
+    _el('btnManual').classList.toggle('active',  mode === 'manual');
+    _el('btnAuto').classList.toggle('active',    mode === 'auto');
     if (mode === 'auto') fetchGcodeList();
 };
 
-// ── Machine status ────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// MACHINE STATUS
+// ═══════════════════════════════════════════════════════════════════════════
+
 async function fetchMachineStatus() {
     try {
-        const d = await api.get('/api/control/status');
-        const state = d.status || '—';
-        const pos = d.position || {};
-        const curA = d.current_A || 0;
+        const d     = await api.get('/api/control/status');
+        const state = d.status   || '—';
+        const pos   = d.position || {};
+        const curA  = d.current_A || 0;
 
         const dot = _el('machDot');
         if (dot) dot.className = `ms-dot ${state === 'Run' ? 'on' : state === 'Alarm' ? 'off' : state === 'Hold' ? 'warn' : 'idle'}`;
-        if (_el('machState')) _el('machState').textContent = state;
-        if (_el('machPos'))   _el('machPos').textContent   = `X:${(pos.x || 0).toFixed(1)} Y:${(pos.y || 0).toFixed(1)} Z:${(pos.z || 0).toFixed(1)}`;
-        if (_el('autoState')) _el('autoState').textContent = state;
-        if (_el('autoX'))     _el('autoX').textContent     = (pos.x || 0).toFixed(2);
-        if (_el('autoY'))     _el('autoY').textContent     = (pos.y || 0).toFixed(2);
-        if (_el('autoZ'))     _el('autoZ').textContent     = (pos.z || 0).toFixed(2);
-        if (_el('autoI'))     _el('autoI').textContent     = curA.toFixed(2);
+        _el('machState').textContent = state;
+        _el('machPos').textContent   = `X:${(pos.x || 0).toFixed(1)} Y:${(pos.y || 0).toFixed(1)} Z:${(pos.z || 0).toFixed(1)}`;
 
-        // Cập nhật tp3dX/Y/Z nếu có (hiển thị vị trí trong panel 3D)
-        if (_el('tp3dX')) _el('tp3dX').textContent = (pos.x || 0).toFixed(2);
-        if (_el('tp3dY')) _el('tp3dY').textContent = (pos.y || 0).toFixed(2);
-        if (_el('tp3dZ')) _el('tp3dZ').textContent = (pos.z || 0).toFixed(2);
+        _el('autoState').textContent = state;
+        _el('autoX').textContent     = (pos.x || 0).toFixed(2);
+        _el('autoY').textContent     = (pos.y || 0).toFixed(2);
+        _el('autoZ').textContent     = (pos.z || 0).toFixed(2);
+        _el('autoI').textContent     = curA.toFixed(2);
     } catch (_) {}
 }
 
-// ── G-Code list ───────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// G-CODE LIST
+// ═══════════════════════════════════════════════════════════════════════════
+
 async function fetchGcodeList() {
     try {
         const data = await api.get('/api/gcode/history', { limit: 20 });
         _renderGcodeList(data);
     } catch (e) {
-        const el = _el('gcodeList');
-        if (el) el.innerHTML = `<div class="gc-empty">❌ ${e.message}</div>`;
+        _el('gcodeList').innerHTML = `<div class="gc-empty">❌ ${e.message}</div>`;
     }
 }
 
 function _renderGcodeList(data) {
-    const el = _el('gcodeList');
-    if (!el) return;
-    const pending = data.filter(g => ['pending_validation', 'pending_confirmation', 'approved', 'confirmed'].includes(g.status));
+    const el      = _el('gcodeList');
+    const pending = data.filter(g => ['pending_validation','pending_confirmation','approved','confirmed'].includes(g.status));
     if (!pending.length) { el.innerHTML = '<div class="gc-empty">📭 Không có G-code đang chờ</div>'; return; }
     el.innerHTML = pending.map(g => {
         const stClass = g.status === 'confirmed' ? 'gc-s-conf' : g.status === 'approved' ? 'gc-s-conf' : g.status === 'rejected' ? 'gc-s-rej' : 'gc-s-pend';
         const stLabel = g.status === 'confirmed' ? 'Confirmed' : g.status === 'approved' ? 'Approved' : 'Chờ';
         const canRun  = g.status === 'confirmed';
-        const canConf = ['approved', 'pending_confirmation', 'pending_validation'].includes(g.status);
+        const canConf = ['approved','pending_confirmation','pending_validation'].includes(g.status);
         const actions = [
             canConf ? `<button class="gc-btn conf" onclick="confirmGcode('${g._id}',this)">✓ Confirm</button>` : '',
             canRun  ? `<button class="gc-btn run"  onclick="runGcode('${g._id}',this)">▶ Run</button>` : '',
@@ -270,28 +636,40 @@ function _renderGcodeList(data) {
 
 async function confirmGcode(id, btn) {
     btn.disabled = true; btn.textContent = '...';
-    try { await api.post(`/api/gcode/${id}/confirm`); _showCtrlMsg('✅ Đã confirm G-code', 'var(--status-active)'); fetchGcodeList(); }
-    catch (e) { btn.disabled = false; btn.textContent = '✓ Confirm'; _showCtrlMsg('❌ ' + e.message, 'var(--status-alarm)'); }
+    try {
+        await api.post(`/api/gcode/${id}/confirm`);
+        _showCtrlMsg('✅ Đã confirm G-code', 'var(--status-active)');
+        fetchGcodeList();
+    } catch (e) {
+        btn.disabled = false; btn.textContent = '✓ Confirm';
+        _showCtrlMsg('❌ ' + e.message, 'var(--status-alarm)');
+    }
 }
 
 async function runGcode(id, btn) {
     if (!confirm('Xác nhận chạy G-code này?')) return;
     btn.disabled = true; btn.textContent = '⏳...';
-    try { await api.post(`/api/control/run/${id}`); _showCtrlMsg('▶️ Đang chạy G-code...', 'var(--status-active)'); fetchGcodeList(); }
-    catch (e) { btn.disabled = false; btn.textContent = '▶ Run'; _showCtrlMsg('❌ ' + e.message, 'var(--status-alarm)'); }
+    try {
+        await api.post(`/api/control/run/${id}`);
+        _showCtrlMsg('▶️ Đang chạy G-code...', 'var(--status-active)');
+        fetchGcodeList();
+    } catch (e) {
+        btn.disabled = false; btn.textContent = '▶ Run';
+        _showCtrlMsg('❌ ' + e.message, 'var(--status-alarm)');
+    }
 }
 
-async function previewGcode(id) {
-    _showCtrlMsg(`Đang load G-code ${id.slice(-6)}...`, 'var(--text-muted)');
-    try {
-        const doc = await api.get(`/api/gcode/${id}`);
-        const content = doc?.gcode || '';
-        if (!content) throw new Error('G-code rỗng');
-        setGCodeFromAI(content);
-        _showCtrlMsg(`✅ Đã load G-code ${id.slice(-6)}`, 'var(--status-active)');
-    } catch (e) {
-        _showCtrlMsg(`❌ ${e.message}`, 'var(--status-alarm)');
-    }
+function previewGcode(id) {
+    _el('toolpathStatus').textContent = `Đang load G-code ${id.slice(-6)}...`;
+    fetch(`/api/gcode/${id}`)
+        .then(r => r.json())
+        .then(doc => {
+            const content = doc?.gcode || '';
+            if (!content) throw new Error('G-code rỗng');
+            updateToolpath(content);
+            _el('toolpathStatus').textContent = `✅ Đã vẽ toolpath ${id.slice(-6)}`;
+        })
+        .catch(e => { _el('toolpathStatus').textContent = `❌ ${e.message}`; });
 }
 
 window.fetchGcodeList = fetchGcodeList;
@@ -299,64 +677,70 @@ window.confirmGcode   = confirmGcode;
 window.runGcode       = runGcode;
 window.previewGcode   = previewGcode;
 
-// ── Quick actions ─────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// QUICK ACTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
 window.sendCmd = async function (action) {
     _showCtrlMsg(`⚡ ${action}...`, 'var(--status-warning)');
     try {
         await api.post(`/api/control/${action}`);
         const msgs = { home: '🏠 Lệnh Home đã gửi', stop: '⏸ Feed Hold đã gửi', resume: '▶️ Resume đã gửi', unlock: '🔓 Unlock đã gửi' };
         _showCtrlMsg(msgs[action] || '✅ OK', 'var(--status-active)');
-    } catch (e) { _showCtrlMsg('❌ ' + e.message, 'var(--status-alarm)'); }
+    } catch (e) {
+        _showCtrlMsg('❌ ' + e.message, 'var(--status-alarm)');
+    }
 };
 
-// ── ESTOP ─────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// ESTOP
+// ═══════════════════════════════════════════════════════════════════════════
+
 window.sendEstop = async function () {
     if (!confirm('⚠️ DỪNG KHẨN CẤP?\nMáy sẽ dừng ngay lập tức!')) return;
-    const btn = document.getElementById('estopFab');
-    if (btn) btn.style.animation = 'pulse 0.3s infinite';
+    const btn = _el('estopFab');
+    btn.style.animation = 'pulse 0.3s infinite';
     try {
         await api.post('/api/control/estop');
         _showCtrlMsg('🛑 ESTOP đã gửi — Máy đang dừng', 'var(--status-alarm)');
-    } catch (e) { _showCtrlMsg('❌ ' + e.message, 'var(--status-alarm)'); }
-    if (btn) btn.style.animation = '';
+    } catch (e) {
+        _showCtrlMsg('❌ ' + e.message, 'var(--status-alarm)');
+    }
+    btn.style.animation = '';
 };
 
-// ── Jog ───────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// JOG
+// ═══════════════════════════════════════════════════════════════════════════
+
 window.jog = async function (axis, dir) {
-    const dist = parseFloat(_el('jogDist')?.value || 1) * dir;
-    const feed = parseFloat(_el('jogFeed')?.value || 500);
+    const dist = parseFloat(_el('jogDist').value) * dir;
+    const feed = parseFloat(_el('jogFeed').value);
     try {
         await api.post('/api/control/jog', { axis, distance: dist, feed });
         _showCtrlMsg(`🎮 Jog ${axis}${dist > 0 ? '+' : ''}${dist}mm F${feed}`, 'var(--status-active)');
-    } catch (e) { _showCtrlMsg('❌ ' + e.message, 'var(--status-alarm)'); }
+    } catch (e) {
+        _showCtrlMsg('❌ ' + e.message, 'var(--status-alarm)');
+    }
 };
 
-// ── G-CODE từ AI / file ───────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// G-CODE FROM AI
+// ═══════════════════════════════════════════════════════════════════════════
+
 function setGCodeFromAI(gcode) {
     currentGCode = gcode;
     const preview = _el('gcodePreview');
-    if (preview) {
-        preview.innerHTML = `<pre style="margin:0;white-space:pre-wrap;font-size:10px;">${gcode}</pre>`;
-    }
+    if (preview) preview.innerHTML = `<pre style="margin:0;white-space:pre-wrap;font-size:10px;">${gcode}</pre>`;
     const btn = _el('downloadBtn');
     if (btn) btn.disabled = false;
-
-    // Ẩn overlay 3D khi có toolpath
-    const overlay = _el('tp3dOverlay');
-    if (overlay) overlay.style.display = 'none';
-
-    const info = _el('tp3dInfo');
-    if (info) info.textContent = `${gcode.split('\n').length} dòng G-Code`;
-
-    // Hiển thị nút Ask AI
-    const askAiBtn = _el('askAiBtn');
-    if (askAiBtn) askAiBtn.style.display = 'block';
+    updateToolpath(gcode);
 }
 
 function downloadGCode() {
     if (!currentGCode) { alert('Chưa có G-Code'); return; }
     const a = document.createElement('a');
-    a.download = `cnc_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.nc`;
+    a.download = `cnc_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.nc`;
     a.href = URL.createObjectURL(new Blob([currentGCode], { type: 'text/plain' }));
     a.click();
 }
@@ -367,12 +751,7 @@ function clearGCode() {
     if (preview) preview.innerHTML = '⏳ Chưa có G-Code';
     const btn = _el('downloadBtn');
     if (btn) btn.disabled = true;
-    const info = _el('tp3dInfo');
-    if (info) info.textContent = 'Chưa có G-Code';
-    const overlay = _el('tp3dOverlay');
-    if (overlay) overlay.style.display = 'flex';
-    const askAiBtn = _el('askAiBtn');
-    if (askAiBtn) askAiBtn.style.display = 'none';
+    clearToolpath3D();
 }
 
 async function sendGcodeToQueue() {
@@ -390,31 +769,28 @@ async function sendGcodeToQueue() {
     }
 }
 
-// ── Nạp file G-code ───────────────────────────────────────────────────────
-function _initFileUpload() {
+// ═══════════════════════════════════════════════════════════════════════════
+// NẠP FILE G-CODE
+// ═══════════════════════════════════════════════════════════════════════════
+
+document.addEventListener('DOMContentLoaded', () => {
     const gcFileInput  = _el('gcFileInput');
     const gcUploadArea = _el('gcUploadArea');
-
     if (gcUploadArea) {
-        gcUploadArea.addEventListener('dragover', e => {
-            e.preventDefault();
-            gcUploadArea.classList.add('dragover');
-        });
-        gcUploadArea.addEventListener('dragleave', () => gcUploadArea.classList.remove('dragover'));
+        gcUploadArea.addEventListener('dragover',  e => { e.preventDefault(); gcUploadArea.classList.add('dragover'); });
+        gcUploadArea.addEventListener('dragleave', ()  => gcUploadArea.classList.remove('dragover'));
         gcUploadArea.addEventListener('drop', e => {
             e.preventDefault();
             gcUploadArea.classList.remove('dragover');
             if (e.dataTransfer.files[0]) loadGCodeFile(e.dataTransfer.files[0]);
         });
     }
-
     if (gcFileInput) {
         gcFileInput.addEventListener('change', e => {
             if (e.target.files[0]) loadGCodeFile(e.target.files[0]);
         });
     }
-}
-
+});
 
 function loadGCodeFile(file) {
     if (!/\.(nc|gcode|txt|tap|cnc|ngc)$/i.test(file.name)) {
@@ -424,15 +800,22 @@ function loadGCodeFile(file) {
     const r = new FileReader();
     r.onload = e => {
         const text = e.target.result;
-        setGCodeFromAI(text);
+        currentGCode = text;
+        const preview = _el('gcodePreview');
+        if (preview) preview.innerHTML =
+            `<pre style="margin:0;white-space:pre-wrap;font-size:10px;">${text.slice(0, 800)}${text.length > 800 ? '\n...(còn nữa)' : ''}</pre>`;
+        const btn = _el('downloadBtn'); if (btn) btn.disabled = false;
 
         const gcFileName  = _el('gcFileName');
         const gcLineCount = _el('gcLineCount');
         const gcFileInfo  = _el('gcFileInfo');
+        const askAiBtn    = _el('askAiBtn');
         if (gcFileName)  gcFileName.textContent  = `📄 ${file.name}`;
-        if (gcLineCount) gcLineCount.textContent  = `${text.split('\n').length} dòng · ${(file.size/1024).toFixed(1)} KB`;
+        if (gcLineCount) gcLineCount.textContent  = `${text.split('\n').length} dòng · ${(file.size / 1024).toFixed(1)} KB`;
         if (gcFileInfo)  gcFileInfo.style.display = 'block';
+        if (askAiBtn)    askAiBtn.style.display   = 'block';
 
+        updateToolpath(text);
         _showCtrlMsg(`✅ Đã nạp ${file.name}`, 'var(--status-active)');
     };
     r.readAsText(file);
@@ -441,60 +824,24 @@ function loadGCodeFile(file) {
 function askAiAboutGCode() {
     if (!currentGCode) return;
     const input = _el('aiIn');
-    if (input) {
-        input.value = 'Hãy phân tích và tối ưu G-Code này cho tôi';
-        input.focus();
-    }
+    if (input) { input.value = 'Hãy phân tích và tối ưu G-Code này cho tôi'; input.focus(); }
 }
 
-// ── 3D viewer stubs (canvas-based, tích hợp sau nếu cần Three.js) ─────────
-function tp3dToggleGrid()    { _toggleTpBtn('btnTpGrid'); }
-function tp3dToggleAxes()    { _toggleTpBtn('btnTpAxes'); }
-function tp3dToggleBox()     { _toggleTpBtn('btnTpBox'); }
-function tp3dToggleZPlane()  { _toggleTpBtn('btnTpZPlane'); }
-function tp3dReset()         {}   // Reset camera view
-function tp3dSimulate()      {}
-function tp3dStop()          {}
-function tp3dResetSim()      {
-    // Reset tiến trình về 0
-    ['tp3dX','tp3dY','tp3dZ'].forEach(id => { const el = _el(id); if (el) el.textContent = '0'; });
-    const prog = _el('tp3dProgress'); if (prog) prog.textContent = '0%';
-    const fill = _el('tp3dFill');     if (fill) fill.style.width = '0%';
-}
-function _toggleTpBtn(id) {
-    const btn = _el(id);
-    if (btn) btn.classList.toggle('active');
-}
+// ═══════════════════════════════════════════════════════════════════════════
+// EXPORT
+// ═══════════════════════════════════════════════════════════════════════════
 
-// ── Speed slider: cập nhật fill + giá trị ────────────────────────────────
-(function initSpeedSlider() {
-    const slider   = _el('simSpeedSlider');
-    const speedVal = _el('simSpeedValue');
-    const speedFill = _el('simSpeedFill');
-    if (slider) {
-        slider.addEventListener('input', () => {
-            const v = parseFloat(slider.value);
-            if (speedVal)  speedVal.textContent  = v.toFixed(1) + 'x';
-            if (speedFill) {
-                const pct = ((v - 0.2) / (3 - 0.2)) * 100;
-                speedFill.style.width = pct + '%';
-            }
-        });
-    }
-})();
-
-// ── Export ra window ──────────────────────────────────────────────────────
-window.setGCodeFromAI    = setGCodeFromAI;
-window.downloadGCode     = downloadGCode;
-window.clearGCode        = clearGCode;
-window.sendGcodeToQueue  = sendGcodeToQueue;
-window.loadGCodeFile     = loadGCodeFile;
-window.askAiAboutGCode   = askAiAboutGCode;
-window.tp3dToggleGrid    = tp3dToggleGrid;
-window.tp3dToggleAxes    = tp3dToggleAxes;
-window.tp3dToggleBox     = tp3dToggleBox;
-window.tp3dToggleZPlane  = tp3dToggleZPlane;
-window.tp3dReset         = tp3dReset;
-window.tp3dSimulate      = tp3dSimulate;
-window.tp3dStop          = tp3dStop;
-window.tp3dResetSim      = tp3dResetSim;
+window.setGCodeFromAI   = setGCodeFromAI;
+window.downloadGCode    = downloadGCode;
+window.clearGCode       = clearGCode;
+window.sendGcodeToQueue = sendGcodeToQueue;
+window.loadGCodeFile    = loadGCodeFile;
+window.askAiAboutGCode  = askAiAboutGCode;
+window.tp3dToggleGrid   = tp3dToggleGrid;
+window.tp3dToggleAxes   = tp3dToggleAxes;
+window.tp3dToggleBox    = tp3dToggleBox;
+window.tp3dToggleZPlane = tp3dToggleZPlane;
+window.tp3dReset        = tp3dReset;
+window.tp3dSimulate     = tp3dSimulate;
+window.tp3dStop         = tp3dStop;
+window.tp3dResetSim     = tp3dResetSim;
