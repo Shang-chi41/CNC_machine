@@ -1,7 +1,6 @@
 /**
  * js/monitor.js
  * Logic cho trang Monitor: realtime status, 3D viewer, alarm
- * KHÔNG CÓ CHART - chart chỉ dùng cho History
  */
 
 import { auth } from '/static/js/auth.js';
@@ -16,7 +15,7 @@ theme.init();
 let _almFilter = 'all';
 let _allAlarms = [];
 let _lastLoad = -1;
-let _currentRange = {};
+let _currentRange = { current_min_A: 0, current_max_A: 0, _hasData: false };
 let _twin = null;
 
 // ── HELPER ──
@@ -39,6 +38,8 @@ document.addEventListener('DOMContentLoaded', () => {
     _twin = new DigitalTwinViewer('cncFrame');
     _twin.onReady(() => {
         console.log('✅ 3D Viewer ready on Monitor');
+        // ⭐ Gửi load ban đầu = 0 để model hiển thị màu xám idle
+        _twin.updateLoad(0);
     });
 
     fetchLatest();
@@ -64,13 +65,15 @@ async function fetchLatest() {
         const mx = +(axes.x?.torque ?? d.moment_x ?? 0);
         const my = +(axes.y?.torque ?? d.moment_y ?? 0);
         const mz = +(axes.z?.torque ?? d.moment_z ?? 0);
+        
+        // ⭐ DÒNG ĐIỆN HIỆN TẠI (A)
         const cur = +(d.current?.rms ?? d.load ?? 0);
         const feed = +(d.spindle?.load ?? 0);
         const spindle = +(d.spindle?.speed ?? 0);
         const state = d.status || 'unknown';
         const ts = d.timestamp || d.mqtt_timestamp || '';
 
-        // ⭐ Tính Speed và Torque
+        // Tính Speed và Torque
         const speed = Math.sqrt(vx * vx + vy * vy + vz * vz);
         const torque = Math.sqrt(mx * mx + my * my + mz * mz);
 
@@ -96,40 +99,77 @@ async function fetchLatest() {
                              state === 'Hold' ? 'var(--status-warning)' : 'var(--text-primary)';
         }
 
-        // Range badge
-        const rng = _currentRange;
-        if (rng.current_max_A) {
-            const ratio = cur / rng.current_max_A;
-            const badge = document.getElementById('rangeBadge');
-            if (badge) {
-                badge.textContent = `${rng.current_min_A}–${rng.current_max_A}A`;
-                badge.className = ratio > 1.15 ? 'st-badge alarm' : 
-                                 ratio > 0.9 ? 'st-badge warn' : 'st-badge';
-            }
-        }
-
         // Last update time
         if (ts) try { 
             _el('lastUpdateTime').textContent = new Date(ts).toLocaleTimeString('vi-VN'); 
         } catch (_) {}
 
-        // ⭐ Gửi load lên 3D Viewer
-        if (Math.abs(cur - _lastLoad) > 0.3) {
+        // ⭐⭐⭐ QUAN TRỌNG: TÍNH % TẢI VÀ GỬI LÊN 3D VIEWER ⭐⭐⭐
+        const maxA = _currentRange.current_max_A;
+        const hasData = _currentRange._hasData;
+        
+        let loadPct = 0;
+        let shouldSendLoad = false;
+        
+        if (hasData && maxA && maxA > 0) {
+            // ⭐ Có dữ liệu từ Settings: tính % tải
+            loadPct = Math.min(100, (cur / maxA) * 100);
+            shouldSendLoad = true;
+        } else {
+            // ⭐ Chưa có dữ liệu: gửi 0 để model idle (màu xám)
+            loadPct = 0;
+            shouldSendLoad = true;
+        }
+
+        // ⭐ Gửi load lên 3D Viewer (chỉ khi giá trị thay đổi đáng kể)
+        if (shouldSendLoad && Math.abs(cur - _lastLoad) > 0.2) {
             _lastLoad = cur;
-            const maxA = _currentRange.current_max_A || 5;
-            const loadPct = Math.min(100, (cur / maxA) * 100);
-
+            
             const twin = getTwin();
-            if (twin) twin.updateLoad(loadPct);
+            if (twin) {
+                console.log(`📊 Sending load: ${loadPct}% (current: ${cur}A, max: ${maxA || 'N/A'})`);
+                twin.updateLoad(loadPct);
+            }
 
+            // Cập nhật load pill
             const lp = document.getElementById('loadPill');
             if (lp) {
-                lp.textContent = loadPct > 90 ? `🔴 ${cur.toFixed(1)}A` : 
-                                loadPct > 70 ? `🟡 ${cur.toFixed(1)}A` :
-                                `🟢 ${cur.toFixed(1)}A`;
+                if (!hasData || !maxA) {
+                    lp.textContent = `⏳ ${cur.toFixed(1)}A (chờ cấu hình)`;
+                    lp.style.color = 'var(--text-muted)';
+                } else if (loadPct > 100) {
+                    lp.textContent = `🔴 ${cur.toFixed(1)}A (QUÁ TẢI)`;
+                    lp.style.color = 'var(--status-alarm)';
+                } else if (loadPct > 90) {
+                    lp.textContent = `🟡 ${cur.toFixed(1)}A (gần ngưỡng)`;
+                    lp.style.color = '#886600';
+                } else if (loadPct > 70) {
+                    lp.textContent = `🟡 ${cur.toFixed(1)}A`;
+                    lp.style.color = '#886600';
+                } else if (loadPct > 0) {
+                    lp.textContent = `🟢 ${cur.toFixed(1)}A`;
+                    lp.style.color = 'var(--status-active)';
+                } else {
+                    lp.textContent = `⚪ ${cur.toFixed(1)}A (idle)`;
+                    lp.style.color = 'var(--text-muted)';
+                }
+            }
+
+            // Cập nhật range badge
+            const badge = document.getElementById('rangeBadge');
+            if (badge && hasData && maxA) {
+                const ratio = cur / maxA;
+                badge.textContent = `${_currentRange.current_min_A || 0}–${maxA}A`;
+                badge.className = ratio > 1.15 ? 'st-badge alarm' : 
+                                 ratio > 0.9 ? 'st-badge warn' : 'st-badge';
+            } else if (badge) {
+                badge.textContent = '⏳ Đang tải...';
+                badge.className = 'st-badge';
             }
         }
-    } catch (_) {}
+    } catch (_) {
+        console.warn('⚠️ fetchLatest error:', _);
+    }
 }
 
 // ── Machine context ──
@@ -138,13 +178,37 @@ async function fetchMachineCtx() {
         const d = await api.get('/api/settings/machine');
         const tool = d.tool_name || d.name || '—';
         const mat = d.material_name || '—';
-        _currentRange = { 
-            current_min_A: d.normal_current_min_A, 
-            current_max_A: d.normal_current_max_A 
-        };
+        
+        const minA = d.normal_current_min_A;
+        const maxA = d.normal_current_max_A;
+        
+        if (maxA && maxA > 0) {
+            _currentRange = { 
+                current_min_A: minA || 0, 
+                current_max_A: maxA,
+                _hasData: true
+            };
+            console.log('📊 Machine context loaded:', _currentRange);
+        } else {
+            _currentRange = { 
+                current_min_A: 0, 
+                current_max_A: 0,
+                _hasData: false
+            };
+            console.warn('⚠️ No current range data from settings');
+        }
+        
         _el('toolBadge').textContent = `🔧 ${tool}`;
         _el('matBadge').textContent = `🧱 ${mat}`;
-    } catch (_) { _currentRange = {}; }
+        
+    } catch (_) { 
+        _currentRange = { 
+            current_min_A: 0, 
+            current_max_A: 0,
+            _hasData: false
+        };
+        console.warn('⚠️ Cannot load machine context');
+    }
 }
 
 // ── Alarms ──
@@ -179,9 +243,9 @@ function _renderAlarms(data) {
         const resolveBtn = `<button class="tbl-btn" onclick="resolveAlarm('${a._id}',this)">✓</button>`;
         return `<tr>
             <td>${badge}</td>
-            <td style="max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" 
+            <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" 
                 title="${a.message || ''}">${a.message || '—'}</td>
-            <td style="font-size:8px;white-space:nowrap;">${ts}</td>
+            <td style="font-size:9px;white-space:nowrap;">${ts}</td>
             <td>${resolveBtn}</td>
         </tr>`;
     }).join('');
