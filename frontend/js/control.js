@@ -13,16 +13,50 @@ import { auth } from '/static/js/auth.js';
 import { theme } from '/static/js/theme.js';
 import { api } from '/static/js/api.js';
 import { initAiChat, initSidebarStatus, initUserBar, initLogout } from '/static/js/ai_chat.js';
+// control.js - phần sử dụng DigitalTwinViewer
+
 import { DigitalTwinViewer } from '/static/js/digital_twin.js';
 
-theme.init();
-
-// Lop trung gian noi chuyen voi iframe toolpath (cnc_viewer.html) — doc lap
-// hoan toan voi trang Monitor (xem digital_twin.js de biet giao thuc dung chung).
+// Khởi tạo viewer với iframe #toolpathFrame
 const twin = new DigitalTwinViewer('toolpathFrame');
+
+// Đăng ký callback khi toolpath được vẽ xong
 twin.onToolpathRendered((points) => {
     const el = document.getElementById('toolpathStatus');
     if (el) el.textContent = `✅ Đã vẽ toolpath (${points} điểm)`;
+});
+
+// Hàm preview G-code
+async function previewGcode(id) {
+    document.getElementById('toolpathStatus').textContent = `Đang load G-code ${id.slice(-6)}...`;
+    try {
+        const doc = await api.get(`/api/gcode/${id}`);
+        const content = doc?.gcode || '';
+        if (!content) throw new Error('G-code rỗng');
+        
+        // Gửi lên viewer để vẽ
+        twin.renderToolpath(content);
+        document.getElementById('toolpathStatus').textContent = `Đang vẽ toolpath ${id.slice(-6)}...`;
+    } catch (e) {
+        document.getElementById('toolpathStatus').textContent = `❌ ${e.message}`;
+    }
+}
+
+// Khi clear G-code
+function clearGCode() {
+    // ... code clear
+    twin.clearToolpath();
+}
+
+// Khi nhận G-code từ AI
+function setGCodeFromAI(gcode) {
+    // ... code set preview
+    twin.renderToolpath(gcode);
+}
+
+// Khi trang unload, dọn dẹp
+window.addEventListener('beforeunload', () => {
+    twin.destroy();
 });
 
 document.addEventListener('DOMContentLoaded', () => {
