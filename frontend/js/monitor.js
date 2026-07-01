@@ -18,7 +18,6 @@ let _allAlarms = [];
 let _lastLoad = -1;
 let _currentRange = {};
 let twin = null;
-let _minutes = 60;
 
 // ── Helper ──
 function _el(id) { return document.getElementById(id); }
@@ -216,13 +215,6 @@ async function resolveAlarm(id, btn) {
 }
 
 // ── Window functions ──
-window.setTime = function (min, btn) {
-    _minutes = min;
-    document.querySelectorAll('.ctrl-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    // Có thể fetch chart history nếu cần
-};
-
 window.setAlarmFilter = function (f, btn) {
     _almFilter = f;
     document.querySelectorAll('.af-btn').forEach(b => b.classList.remove('active'));
