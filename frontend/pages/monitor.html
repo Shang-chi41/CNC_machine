@@ -18,7 +18,7 @@
     </div>
     <div class="header-center">
         <div class="main-title">TÍNH TOÁN, THIẾT KẾ HỆ THỐNG ĐIỀU KHIỂN MÁY CNC ĐỂ BÀN TỰ CHỦ THÔNG MINH</div>
-        <div class="sub-title">GVHD: LÊ GIANG NAM — VIMES LAB — HUST</div>
+        <div class="sub-title">GVHD: LÊ GIANG NAM — APS LAB — HUST</div>
     </div>
     <img src="/static/images/vimes_logo.png" alt="Vimes" style="height:55px;width:auto;" onerror="this.src='https://via.placeholder.com/55x55?text=V'">
 </header>
@@ -61,17 +61,14 @@
         <!-- ═══ PANEL THÔNG TIN CHÍNH ═══ -->
         <div class="monitor-panel">
             
-            <!-- Phần 1: Trạng thái máy và nút thời gian -->
+            <!-- Phần 1: Trạng thái máy -->
             <div class="panel-top-bar">
                 <div class="machine-state">
                     <div class="st-dot idle" id="stateDot"></div>
                     <span class="st-label" id="stateLabel">---</span>
                 </div>
-                <div class="time-controls">
-                    <button class="ctrl-btn active" onclick="setTime(60,this)">1H</button>
-                    <button class="ctrl-btn" onclick="setTime(360,this)">6H</button>
-                    <button class="ctrl-btn" onclick="setTime(720,this)">12H</button>
-                    <button class="ctrl-btn" onclick="setTime(1440,this)">1D</button>
+                <div class="update-time">
+                    <span class="st-time" id="lastUpdateTime">---</span>
                 </div>
             </div>
 
@@ -163,7 +160,6 @@
                 <span class="st-badge" id="toolBadge">🔧 ---</span>
                 <span class="st-badge" id="matBadge">🧱 ---</span>
                 <span class="st-badge" id="rangeBadge">---</span>
-                <span class="st-time" id="lastUpdateTime">---</span>
                 <span class="load-pill" id="loadPill">🟢 Kết nối...</span>
             </div>
 
