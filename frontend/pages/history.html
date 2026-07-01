@@ -19,7 +19,7 @@
     </div>
     <div class="header-center">
         <div class="main-title">TÍNH TOÁN, THIẾT KẾ HỆ THỐNG ĐIỀU KHIỂN MÁY CNC ĐỂ BÀN TỰ CHỦ THÔNG MINH</div>
-        <div class="sub-title">GVHD: LÊ GIANG NAM — APS LAB — HUST</div>
+        <div class="sub-title">GVHD: LÊ GIANG NAM — VIMES LAB — HUST</div>
     </div>
     <img src="/static/images/vimes_logo.png" alt="Vimes" style="height:55px;width:auto;" onerror="this.src='https://via.placeholder.com/55x55?text=V'">
 </header>
@@ -109,45 +109,60 @@
             <div class="sum-chip"><span>Bản ghi</span><span class="sum-val" id="sumCount">—</span></div>
         </div>
 
-        <!-- Chart - Position -->
-        <div class="chart-card">
-            <div class="chart-header">
-                <span class="chart-title">📍 VỊ TRÍ (mm)</span>
+        <!-- ⭐ CHART SCROLL WRAPPER - CÓ THANH CUỘN -->
+        <div class="chart-scroll-wrapper">
+            
+            <!-- Chart - Position -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <span class="chart-title">📍 VỊ TRÍ (mm)</span>
+                </div>
+                <div class="chart-legend">
+                    <span><span class="leg-dot" style="background:#e74c3c"></span>X</span>
+                    <span><span class="leg-dot" style="background:#00b894"></span>Y</span>
+                    <span><span class="leg-dot" style="background:#3498db"></span>Z</span>
+                </div>
+                <canvas id="sensorChart" height="100"></canvas>
             </div>
-            <div class="chart-legend">
-                <span><span class="leg-dot" style="background:#e74c3c"></span>X</span>
-                <span><span class="leg-dot" style="background:#00b894"></span>Y</span>
-                <span><span class="leg-dot" style="background:#3498db"></span>Z</span>
-            </div>
-            <canvas id="sensorChart" height="90"></canvas>
-        </div>
 
-        <!-- Chart - Velocity -->
-        <div class="chart-card">
-            <div class="chart-header">
-                <span class="chart-title">⚡ VẬN TỐC (mm/s)</span>
+            <!-- Chart - Velocity -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <span class="chart-title">⚡ VẬN TỐC (mm/s)</span>
+                </div>
+                <div class="chart-legend">
+                    <span><span class="leg-dot" style="background:#e74c3c"></span>Vx</span>
+                    <span><span class="leg-dot" style="background:#00b894"></span>Vy</span>
+                    <span><span class="leg-dot" style="background:#3498db"></span>Vz</span>
+                </div>
+                <canvas id="chartVel" height="90"></canvas>
             </div>
-            <canvas id="chartVel" height="80"></canvas>
-        </div>
 
-        <!-- Chart - Moment -->
-        <div class="chart-card">
-            <div class="chart-header">
-                <span class="chart-title">🔩 MOMENT (N·m)</span>
+            <!-- Chart - Moment -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <span class="chart-title">🔩 MOMENT (N·m)</span>
+                </div>
+                <div class="chart-legend">
+                    <span><span class="leg-dot" style="background:#e74c3c"></span>Mx</span>
+                    <span><span class="leg-dot" style="background:#00b894"></span>My</span>
+                    <span><span class="leg-dot" style="background:#3498db"></span>Mz</span>
+                </div>
+                <canvas id="chartMom" height="90"></canvas>
             </div>
-            <canvas id="chartMom" height="80"></canvas>
-        </div>
 
-        <!-- Chart - Current -->
-        <div class="chart-card">
-            <div class="chart-header">
-                <span class="chart-title">⚡ DÒNG ĐIỆN (A)</span>
+            <!-- Chart - Current -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <span class="chart-title">⚡ DÒNG ĐIỆN (A)</span>
+                </div>
+                <canvas id="chartCur" height="80"></canvas>
             </div>
-            <canvas id="chartCur" height="70"></canvas>
-        </div>
+
+        </div><!-- .chart-scroll-wrapper -->
 
         <!-- Table -->
-        <div class="table-wrap"style="max-height: 450px; overflow-y: auto;">
+        <div class="table-wrap" style="max-height: 350px; overflow-y: auto;">
             <table>
                 <thead><tr>
                     <th>THỜI GIAN</th>
@@ -188,7 +203,7 @@
             <div class="sum-chip"><span>Tổng</span><span class="sum-val" id="almTotal">—</span></div>
         </div>
 
-        <div class="table-wrap">
+        <div class="table-wrap" style="max-height: 400px; overflow-y: auto;">
             <table>
                 <thead><tr>
                     <th>MỨC</th>
@@ -232,7 +247,7 @@
             <div class="sum-chip"><span>Chờ confirm</span><span class="sum-val" style="color:#886600;" id="gcPend">—</span></div>
         </div>
 
-        <div class="table-wrap">
+        <div class="table-wrap" style="max-height: 400px; overflow-y: auto;">
             <table>
                 <thead><tr>
                     <th>TÊN FILE</th>
@@ -261,7 +276,7 @@
             <div class="sum-chip"><span>Tổng lượt</span><span class="sum-val" id="chatTotal">—</span></div>
         </div>
 
-        <div class="table-wrap">
+        <div class="table-wrap" style="max-height: 400px; overflow-y: auto;">
             <table>
                 <thead><tr>
                     <th>THỜI GIAN</th>
