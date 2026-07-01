@@ -58,65 +58,81 @@
 <!-- ══ MAIN ══ -->
 <main class="main-area">
 
-    <!-- ══ STATUS ROW - SỐ LIỆU REALTIME ══ -->
+    <!-- ══ STATUS ROW - SỐ LIỆU REALTIME DẠNG BẢNG ══ -->
     <div class="status-row">
-        <!-- Trạng thái máy -->
-        <div class="status-group">
-            <div class="status-item">
-                <span class="status-label">Trạng thái</span>
-                <div class="status-state">
-                    <div class="st-dot idle" id="stateDot"></div>
-                    <span class="st-label" id="stateLabel">---</span>
-                </div>
+        
+        <!-- Cột 1: Trạng thái -->
+        <div class="status-col">
+            <div class="status-state">
+                <div class="st-dot idle" id="stateDot"></div>
+                <span class="st-label" id="stateLabel">---</span>
             </div>
         </div>
 
-        <div class="status-divider"></div>
-
-        <!-- Vị trí -->
-        <div class="status-group">
+        <!-- Cột 2: Vị trí 3 trục -->
+        <div class="status-col">
             <div class="status-item">
-                <span class="status-label">Vị trí X</span>
+                <span class="status-label">📍 Vị trí X</span>
                 <span class="status-value" id="posX">---</span>
                 <span class="status-unit">mm</span>
             </div>
             <div class="status-item">
-                <span class="status-label">Vị trí Y</span>
+                <span class="status-label">📍 Vị trí Y</span>
                 <span class="status-value" id="posY">---</span>
                 <span class="status-unit">mm</span>
             </div>
             <div class="status-item">
-                <span class="status-label">Vị trí Z</span>
+                <span class="status-label">📍 Vị trí Z</span>
                 <span class="status-value" id="posZ">---</span>
                 <span class="status-unit">mm</span>
             </div>
         </div>
 
-        <div class="status-divider"></div>
-
-        <!-- Tốc độ / Moment / Dòng điện -->
-        <div class="status-group">
+        <!-- Cột 3: Vận tốc 3 trục -->
+        <div class="status-col">
             <div class="status-item">
-                <span class="status-label">⚡ Tốc độ</span>
-                <span class="status-value" id="speedVal">---</span>
+                <span class="status-label">⚡ Vận tốc X</span>
+                <span class="status-value" id="velX">---</span>
                 <span class="status-unit">mm/s</span>
             </div>
             <div class="status-item">
-                <span class="status-label">🔩 Moment</span>
-                <span class="status-value" id="torqueVal">---</span>
+                <span class="status-label">⚡ Vận tốc Y</span>
+                <span class="status-value" id="velY">---</span>
+                <span class="status-unit">mm/s</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">⚡ Vận tốc Z</span>
+                <span class="status-value" id="velZ">---</span>
+                <span class="status-unit">mm/s</span>
+            </div>
+        </div>
+
+        <!-- Cột 4: Moment 3 trục -->
+        <div class="status-col">
+            <div class="status-item">
+                <span class="status-label">🔩 Moment X</span>
+                <span class="status-value" id="momX">---</span>
                 <span class="status-unit">N·m</span>
             </div>
+            <div class="status-item">
+                <span class="status-label">🔩 Moment Y</span>
+                <span class="status-value" id="momY">---</span>
+                <span class="status-unit">N·m</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">🔩 Moment Z</span>
+                <span class="status-value" id="momZ">---</span>
+                <span class="status-unit">N·m</span>
+            </div>
+        </div>
+
+        <!-- Cột 5: Dòng điện / Feedrate / Spindle -->
+        <div class="status-col">
             <div class="status-item">
                 <span class="status-label">⚡ Dòng điện</span>
                 <span class="status-value" id="curVal">---</span>
                 <span class="status-unit">A</span>
             </div>
-        </div>
-
-        <div class="status-divider"></div>
-
-        <!-- Feed / Spindle -->
-        <div class="status-group">
             <div class="status-item">
                 <span class="status-label">📊 Feedrate</span>
                 <span class="status-value" id="feedVal">---</span>
@@ -129,53 +145,17 @@
             </div>
         </div>
 
-        <div class="status-divider"></div>
-
-        <!-- Badge -->
-        <div class="status-group">
+        <!-- Cột 6: Badge -->
+        <div class="status-col">
             <span class="st-badge" id="toolBadge">🔧 ---</span>
             <span class="st-badge" id="matBadge">🧱 ---</span>
             <span class="st-badge" id="rangeBadge">---</span>
             <span class="st-time" id="lastUpdateTime">---</span>
         </div>
+
     </div>
 
-    <!-- ══ AXIS DETAIL - VẬN TỐC / MOMENT THEO TỪNG TRỤC ══ -->
-    <div class="axis-panel">
-        <table class="axis-table">
-            <thead>
-                <tr>
-                    <th>Trục</th>
-                    <th>Vị trí</th>
-                    <th>Vận tốc</th>
-                    <th>Moment</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr class="axis-row axis-x">
-                    <td class="axis-name">X</td>
-                    <td><span class="axis-value" id="axPosX">---</span><span class="axis-unit">mm</span></td>
-                    <td><span class="axis-value" id="axVelX">---</span><span class="axis-unit">mm/s</span></td>
-                    <td><span class="axis-value" id="axTorX">---</span><span class="axis-unit">N·m</span></td>
-                </tr>
-                <tr class="axis-row axis-y">
-                    <td class="axis-name">Y</td>
-                    <td><span class="axis-value" id="axPosY">---</span><span class="axis-unit">mm</span></td>
-                    <td><span class="axis-value" id="axVelY">---</span><span class="axis-unit">mm/s</span></td>
-                    <td><span class="axis-value" id="axTorY">---</span><span class="axis-unit">N·m</span></td>
-                </tr>
-                <tr class="axis-row axis-z">
-                    <td class="axis-name">Z</td>
-                    <td><span class="axis-value" id="axPosZ">---</span><span class="axis-unit">mm</span></td>
-                    <td><span class="axis-value" id="axVelZ">---</span><span class="axis-unit">mm/s</span></td>
-                    <td><span class="axis-value" id="axTorZ">---</span><span class="axis-unit">N·m</span></td>
-                </tr>
-            </tbody>
-        </table>
-        <div class="axis-note">⚠ Dòng điện chỉ có 1 cảm biến tổng (xem mục "Dòng điện" ở trên), chưa tách riêng theo từng trục.</div>
-    </div>
-
-    <!-- ══ BODY: 3D Viewer + Alarm ══ -->
+    <!-- ══ BODY: 3D Viewer + Alarm (2 cột) ══ -->
     <div class="monitor-body">
 
         <!-- 3D Viewer -->
