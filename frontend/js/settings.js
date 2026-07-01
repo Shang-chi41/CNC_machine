@@ -51,7 +51,7 @@ const DEFAULTS_MACHINE = {
     homing_pulloff: 5, 
     // ⭐ TĂNG NGƯỠNG DÒNG ĐIỆN (thay đổi theo động cơ của bạn)
     normal_current_min_A: 0.5,   // Dòng idle tối thiểu
-    normal_current_max_A: 8.0,   // Dòng tối đa (mặc định 8A, chỉnh theo động cơ)
+    normal_current_max_A: 5.0,   // Dòng tối đa (mặc định 8A, chỉnh theo động cơ)
     spindle_max_rpm: 12000 
 };
 
