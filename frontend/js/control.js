@@ -10,420 +10,42 @@ import { theme } from '/static/js/theme.js';
 import { api } from '/static/js/api.js';
 import { initAiChat, initSidebarStatus, initUserBar, initLogout } from '/static/js/ai_chat.js';
 
-// =============================================
-// 3D TOOLPATH VIEWER - Three.js
-// =============================================
-import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-
-// ⭐ KHỞI TẠO THEME
+// ⭐ 1. KHỞI TẠO THEME (safe to run immediately)
 theme.init();
 
-// ⭐ HELPER FUNCTIONS
+// ⭐ 2. HELPER FUNCTIONS
 function _el(id) { return document.getElementById(id); }
-
-function _showCtrlMsg(msg, color) {
-    const el = document.getElementById('ctrlMsg');
-    if (el) {
-        el.textContent = msg;
-        el.style.color = color || 'var(--text-secondary)';
-    }
+function _showCtrlMsg(msg, color) { 
+    const el = document.getElementById('ctrlMsg'); 
+    if (el) { 
+        el.textContent = msg; 
+        el.style.color = color || 'var(--text-secondary)'; 
+    } 
 }
 
-// ⭐ BIẾN TOÀN CỤC
+// ⭐ 3. G-Code state
 let currentGCode = '';
-let _mode = 'manual';
 
-// ⭐ 3D Toolpath Variables
-const WS = { xMin: -200, xMax: 200, yMin: -150, yMax: 150, zMin: -50, zMax: 50 };
-let tp3dRenderer = null, tp3dScene = null, tp3dCamera = null, tp3dOrbit = null;
-let tp3dLine = null, tp3dHeadMesh = null, tp3dPoints = [];
-let tp3dGridVisible = true, tp3dAxesVisible = true, tp3dBoxVisible = true;
-let tp3dSimInterval = null, tp3dSimIdx = 0, tp3dSimSpeed = 1.0;
-
-// ⭐ DOMContentLoaded
+// ⭐ 4. DOMContentLoaded — mọi khởi tạo DOM phải nằm trong đây
 document.addEventListener('DOMContentLoaded', () => {
     if (!auth.guard()) return;
 
     initUserBar(auth);
     initLogout(auth);
     initSidebarStatus();
-    initAiChat({ enableUpload: true, enableGcodeActions: true, onAfterChat: fetchGcodeList });
+    initAiChat({ enableUpload: true, enableGcodeActions: true, onAfterChat: fetchGcodeList, context: 'control' });
 
-    fetchMachineStatus();
+    fetchMachineStatus(); 
     setInterval(fetchMachineStatus, 3000);
     fetchGcodeList();
     initFluidncConnection();
-
-    // ⭐ Khởi tạo 3D Toolpath
-    setTimeout(initToolpath3D, 100);
-
-    // ⭐ Speed slider
-    const slider = document.getElementById('simSpeedSlider');
-    const speedVal = document.getElementById('simSpeedValue');
-    if (slider && speedVal) {
-        slider.addEventListener('input', () => {
-            tp3dSimSpeed = parseFloat(slider.value);
-            speedVal.textContent = tp3dSimSpeed.toFixed(1) + 'x';
-            if (tp3dSimInterval) { tp3dStop(); tp3dSimulate(); }
-        });
-    }
+    _initFileUpload();
 
     if (window.location.hash === '#ai') setMode('auto');
 });
 
-// ═══════════════════════════════════════════════════════════════════════════
-// 3D TOOLPATH FUNCTIONS
-// ═══════════════════════════════════════════════════════════════════════════
-
-function initToolpath3D() {
-    const canvas = document.getElementById('toolpath3D');
-    if (!canvas) return;
-    
-    const parent = canvas.parentElement;
-    const W = parent.clientWidth || 600;
-    const H = parent.clientHeight || 400;
-    
-    const bgColor = getComputedStyle(document.documentElement)
-        .getPropertyValue('--gray-bg').trim() || '#C8CACF';
-    
-    tp3dRenderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-    tp3dRenderer.setSize(W, H);
-    tp3dRenderer.setClearColor(bgColor, 1);
-    tp3dRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    
-    tp3dScene = new THREE.Scene();
-    tp3dScene.background = new THREE.Color(bgColor);
-    
-    tp3dCamera = new THREE.PerspectiveCamera(40, W/H, 1, 8000);
-    tp3dCamera.position.set(300, 350, 450);
-    
-    tp3dOrbit = new OrbitControls(tp3dCamera, canvas);
-    tp3dOrbit.enableDamping = true;
-    tp3dOrbit.dampingFactor = 0.06;
-    tp3dOrbit.target.set(0, 0, 0);
-    
-    // Lighting
-    tp3dScene.add(new THREE.AmbientLight(0xffffff, 0.7));
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
-    dirLight.position.set(200, 400, 300);
-    tp3dScene.add(dirLight);
-    
-    buildAxes();
-    animate3D();
-    
-    // Resize
-    new ResizeObserver(() => {
-        const p = canvas.parentElement;
-        if (!p) return;
-        const w = p.clientWidth, h = p.clientHeight;
-        if (w > 0 && h > 0) {
-            tp3dRenderer.setSize(w, h);
-            tp3dCamera.aspect = w / h;
-            tp3dCamera.updateProjectionMatrix();
-        }
-    }).observe(parent);
-}
-
-function animate3D() {
-    requestAnimationFrame(animate3D);
-    if (tp3dOrbit) tp3dOrbit.update();
-    if (tp3dRenderer && tp3dScene && tp3dCamera) {
-        tp3dRenderer.render(tp3dScene, tp3dCamera);
-    }
-}
-
-function buildAxes() {
-    if (!tp3dScene) return;
-    
-    // Xóa các đối tượng cũ
-    const toRemove = [];
-    tp3dScene.children.forEach(child => {
-        if (child.userData?.isAxis) toRemove.push(child);
-    });
-    toRemove.forEach(child => tp3dScene.remove(child));
-    
-    // Grid
-    if (tp3dGridVisible) {
-        const grid = new THREE.GridHelper(400, 20, 0x9A9C9F, 0xB0B2B6);
-        grid.position.y = -50;
-        grid.userData.isAxis = true;
-        tp3dScene.add(grid);
-    }
-    
-    // ⭐ AXES - MÀU XANH ISA-101 (#1E5FA8)
-    if (tp3dAxesVisible) {
-        const axesLength = 250;
-        const arrowHeadLength = 10;
-        const arrowHeadWidth = 6;
-        
-        // Trục X - Đỏ
-        const arrowX = new THREE.ArrowHelper(
-            new THREE.Vector3(1, 0, 0),
-            new THREE.Vector3(0, -50, 0),
-            axesLength,
-            0xe74c3c,
-            arrowHeadLength,
-            arrowHeadWidth
-        );
-        arrowX.userData.isAxis = true;
-        tp3dScene.add(arrowX);
-        
-        // Trục Y - Xanh lá
-        const arrowY = new THREE.ArrowHelper(
-            new THREE.Vector3(0, 1, 0),
-            new THREE.Vector3(0, -50, 0),
-            axesLength,
-            0x2ecc71,
-            arrowHeadLength,
-            arrowHeadWidth
-        );
-        arrowY.userData.isAxis = true;
-        tp3dScene.add(arrowY);
-        
-        // Trục Z - Xanh ISA-101 (#1E5FA8)
-        const arrowZ = new THREE.ArrowHelper(
-            new THREE.Vector3(0, 0, 1),
-            new THREE.Vector3(0, -50, 0),
-            axesLength,
-            0x1E5FA8,
-            arrowHeadLength,
-            arrowHeadWidth
-        );
-        arrowZ.userData.isAxis = true;
-        tp3dScene.add(arrowZ);
-    }
-    
-    // Box
-    if (tp3dBoxVisible) {
-        const boxGeo = new THREE.BoxGeometry(400, 100, 300);
-        const boxEdges = new THREE.EdgesGeometry(boxGeo);
-        const boxLine = new THREE.LineSegments(boxEdges, 
-            new THREE.LineBasicMaterial({ color: 0x9A9C9F, transparent: true, opacity: 0.3 })
-        );
-        boxLine.position.set(0, 0, 0);
-        boxLine.userData.isAxis = true;
-        tp3dScene.add(boxLine);
-    }
-}
-
-function extractToolpath(gcode) {
-    if (!gcode) return [];
-    const pts = [];
-    let x = 0, y = 0, z = 0;
-    let abs = true;
-    
-    const lines = gcode.split(/\r?\n/);
-    for (let line of lines) {
-        line = line.split(';')[0].split('(')[0].trim();
-        if (!line) continue;
-        
-        if (/^G90/i.test(line)) { abs = true; continue; }
-        if (/^G91/i.test(line)) { abs = false; continue; }
-        
-        const xM = line.match(/X([+-]?\d*\.?\d+)/i);
-        const yM = line.match(/Y([+-]?\d*\.?\d+)/i);
-        const zM = line.match(/Z([+-]?\d*\.?\d+)/i);
-        
-        if (xM) x = abs ? parseFloat(xM[1]) : x + parseFloat(xM[1]);
-        if (yM) y = abs ? parseFloat(yM[1]) : y + parseFloat(yM[1]);
-        if (zM) z = abs ? parseFloat(zM[1]) : z + parseFloat(zM[1]);
-        
-        if (xM || yM || zM) {
-            pts.push({
-                x: Math.max(WS.xMin, Math.min(WS.xMax, x)),
-                y: Math.max(WS.yMin, Math.min(WS.yMax, y)),
-                z: Math.max(WS.zMin, Math.min(WS.zMax, z))
-            });
-        }
-    }
-    return pts;
-}
-
-function buildToolpathLine(pts) {
-    if (!tp3dScene) return;
-    
-    if (tp3dLine) {
-        tp3dScene.remove(tp3dLine);
-        if (tp3dLine.geometry) tp3dLine.geometry.dispose();
-        tp3dLine = null;
-    }
-    if (tp3dHeadMesh) {
-        tp3dScene.remove(tp3dHeadMesh);
-        if (tp3dHeadMesh.geometry) tp3dHeadMesh.geometry.dispose();
-        if (tp3dHeadMesh.material) tp3dHeadMesh.material.dispose();
-        tp3dHeadMesh = null;
-    }
-    
-    if (!pts.length) {
-        showToolpathOverlay();
-        return;
-    }
-    
-    const positions = [];
-    const colors = [];
-    
-    pts.forEach((p, i) => {
-        positions.push(p.x, p.z, -p.y);
-        const t = pts.length > 1 ? i / (pts.length - 1) : 0;
-        const r = 0x1E + (0xCC - 0x1E) * t;
-        const g = 0x5F + (0x66 - 0x5F) * t;
-        const b = 0xA8 + (0x00 - 0xA8) * t;
-        colors.push(r/255, g/255, b/255);
-    });
-    
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
-    geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(colors), 3));
-    
-    tp3dLine = new THREE.Line(geo, new THREE.LineBasicMaterial({ vertexColors: true }));
-    tp3dScene.add(tp3dLine);
-    
-    // Head - điểm đầu
-    tp3dHeadMesh = new THREE.Mesh(
-        new THREE.SphereGeometry(3.5, 16, 16),
-        new THREE.MeshStandardMaterial({ color: 0xCC6600, emissive: 0xCC6600, emissiveIntensity: 0.3 })
-    );
-    tp3dHeadMesh.position.set(pts[0].x, pts[0].z, -pts[0].y);
-    tp3dScene.add(tp3dHeadMesh);
-    
-    // ⭐ Ẩn overlay khi có G-code
-    hideToolpathOverlay();
-    
-    // Update info
-    const xs = pts.map(p => p.x), ys = pts.map(p => p.y), zs = pts.map(p => p.z);
-    const infoEl = document.getElementById('tp3dInfo');
-    if (infoEl) {
-        infoEl.textContent = `${pts.length} điểm | X:${(Math.max(...xs)-Math.min(...xs)).toFixed(0)} Y:${(Math.max(...ys)-Math.min(...ys)).toFixed(0)} Z:${(Math.max(...zs)-Math.min(...zs)).toFixed(0)} mm`;
-    }
-}
-
-function updateToolpath(gcode) {
-    const pts = extractToolpath(gcode);
-    tp3dPoints = pts;
-    buildToolpathLine(pts);
-}
-
-function clearToolpath3D() {
-    if (tp3dLine) {
-        tp3dScene.remove(tp3dLine);
-        if (tp3dLine.geometry) tp3dLine.geometry.dispose();
-        tp3dLine = null;
-    }
-    if (tp3dHeadMesh) {
-        tp3dScene.remove(tp3dHeadMesh);
-        if (tp3dHeadMesh.geometry) tp3dHeadMesh.geometry.dispose();
-        if (tp3dHeadMesh.material) tp3dHeadMesh.material.dispose();
-        tp3dHeadMesh = null;
-    }
-    tp3dPoints = [];
-    
-    // ⭐ Hiển thị overlay khi xóa G-code
-    showToolpathOverlay();
-    
-    const infoEl = document.getElementById('tp3dInfo');
-    if (infoEl) infoEl.textContent = 'Chưa có G-Code';
-}
-
-// ⭐ HIỂN THỊ/ẨN OVERLAY
-function showToolpathOverlay() {
-    const overlay = document.getElementById('tp3dOverlay');
-    if (overlay) {
-        overlay.classList.remove('hidden');
-        overlay.classList.add('visible');
-    }
-}
-
-function hideToolpathOverlay() {
-    const overlay = document.getElementById('tp3dOverlay');
-    if (overlay) {
-        overlay.classList.remove('visible');
-        overlay.classList.add('hidden');
-    }
-}
-
-function tp3dToggleGrid() {
-    tp3dGridVisible = !tp3dGridVisible;
-    buildAxes();
-    if (tp3dLine) tp3dScene.add(tp3dLine);
-    if (tp3dHeadMesh) tp3dScene.add(tp3dHeadMesh);
-    const btn = document.getElementById('btnTpGrid');
-    if (btn) btn.classList.toggle('active', tp3dGridVisible);
-}
-
-function tp3dToggleAxes() {
-    tp3dAxesVisible = !tp3dAxesVisible;
-    buildAxes();
-    if (tp3dLine) tp3dScene.add(tp3dLine);
-    if (tp3dHeadMesh) tp3dScene.add(tp3dHeadMesh);
-    const btn = document.getElementById('btnTpAxes');
-    if (btn) btn.classList.toggle('active', tp3dAxesVisible);
-}
-
-function tp3dToggleBox() {
-    tp3dBoxVisible = !tp3dBoxVisible;
-    buildAxes();
-    if (tp3dLine) tp3dScene.add(tp3dLine);
-    if (tp3dHeadMesh) tp3dScene.add(tp3dHeadMesh);
-    const btn = document.getElementById('btnTpBox');
-    if (btn) btn.classList.toggle('active', tp3dBoxVisible);
-}
-
-function tp3dResetView() {
-    buildAxes();
-    if (tp3dLine) tp3dScene.add(tp3dLine);
-    if (tp3dHeadMesh) tp3dScene.add(tp3dHeadMesh);
-}
-
-function tp3dSimulate() {
-    if (!tp3dPoints.length) { 
-        _showCtrlMsg('⚠️ Chưa có G-Code để mô phỏng', 'var(--status-warning)');
-        return; 
-    }
-    if (tp3dSimInterval) clearInterval(tp3dSimInterval);
-    tp3dSimIdx = 0;
-    const total = tp3dPoints.length;
-    const delay = Math.max(10, Math.min(100, 30 / tp3dSimSpeed));
-    tp3dSimInterval = setInterval(() => {
-        if (tp3dSimIdx >= total) {
-            clearInterval(tp3dSimInterval);
-            tp3dSimInterval = null;
-            _showCtrlMsg('✅ Mô phỏng xong!', 'var(--status-active)');
-            return;
-        }
-        const p = tp3dPoints[tp3dSimIdx];
-        if (tp3dHeadMesh) tp3dHeadMesh.position.set(p.x, p.z, -p.y);
-        document.getElementById('tp3dX').textContent = p.x.toFixed(1);
-        document.getElementById('tp3dY').textContent = p.y.toFixed(1);
-        document.getElementById('tp3dZ').textContent = p.z.toFixed(1);
-        const pct = ((tp3dSimIdx+1)/total*100).toFixed(1);
-        document.getElementById('tp3dProgress').textContent = pct+'%';
-        document.getElementById('tp3dFill').style.width = pct+'%';
-        tp3dSimIdx++;
-    }, delay);
-}
-
-function tp3dStop() {
-    clearInterval(tp3dSimInterval);
-    tp3dSimInterval = null;
-}
-
-function tp3dResetSim() {
-    tp3dStop();
-    tp3dSimIdx = 0;
-    ['tp3dX','tp3dY','tp3dZ'].forEach(id => document.getElementById(id).textContent = '0');
-    document.getElementById('tp3dProgress').textContent = '0%';
-    document.getElementById('tp3dFill').style.width = '0%';
-    if (tp3dHeadMesh && tp3dPoints.length) {
-        tp3dHeadMesh.position.set(tp3dPoints[0].x, tp3dPoints[0].z, -tp3dPoints[0].y);
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// FLUIDNC CONNECTION
-// ═══════════════════════════════════════════════════════════════════════════
-
-const KEY_FLUIDNC_LAST = 'cnc_fluidnc_url';
+// ── FluidNC WebUI ──────────────────────────────────────────────────────────
+const KEY_FLUIDNC_LAST  = 'cnc_fluidnc_url';
 const KEY_FLUIDNC_SAVED = 'cnc_fluidnc_saved_urls';
 
 function _fluidncSavedUrls() {
@@ -466,7 +88,8 @@ function initFluidncConnection() {
     _fluidncRenderSaved();
     const last = localStorage.getItem(KEY_FLUIDNC_LAST);
     if (last) {
-        document.getElementById('deviceUrl').value = last;
+        const inp = document.getElementById('deviceUrl');
+        if (inp) inp.value = last;
         _fluidncLoad(last);
     }
 }
@@ -480,33 +103,34 @@ function _fluidncNormalize(raw) {
 
 function _fluidncSetStatus(state, url = '') {
     const badge = document.getElementById('connectionStatus');
-    const dot = document.getElementById('manualStatusDot');
-    const text = document.getElementById('manualStatusText');
+    const dot   = document.getElementById('manualStatusDot');
+    const text  = document.getElementById('manualStatusText');
     const urlEl = document.getElementById('manualStatusUrl');
 
     const map = {
-        connecting: { label: 'Đang kết nối...', color: 'var(--status-warning)' },
-        connected: { label: 'Đã kết nối', color: 'var(--status-active)' },
-        error: { label: 'Lỗi kết nối', color: 'var(--status-alarm)' },
-        disconnected: { label: 'Chưa kết nối', color: 'var(--text-muted)' },
+        connecting:   { label: 'Đang kết nối...', color: 'var(--status-warning)' },
+        connected:    { label: 'Đã kết nối',      color: 'var(--status-active)'  },
+        error:        { label: 'Lỗi kết nối',     color: 'var(--status-alarm)'   },
+        disconnected: { label: 'Chưa kết nối',    color: 'var(--text-muted)'     },
     };
     const s = map[state] || map.disconnected;
 
     if (badge) { badge.textContent = s.label; badge.style.color = s.color; }
-    if (dot) dot.style.background = s.color;
-    if (text) text.textContent = s.label;
+    if (dot)   dot.style.background = s.color;
+    if (text)  text.textContent = s.label;
     if (urlEl) urlEl.textContent = url;
 }
 
 function _fluidncLoad(url) {
-    const frame = document.getElementById('fluidncFrame');
-    const empty = document.getElementById('manualEmpty');
+    const frame   = document.getElementById('fluidncFrame');
+    const empty   = document.getElementById('manualEmpty');
     const loading = document.getElementById('manualLoading');
-    const error = document.getElementById('manualError');
+    const error   = document.getElementById('manualError');
+    if (!frame) return;
 
-    empty.style.display = 'none';
-    error.style.display = 'none';
-    loading.style.display = 'flex';
+    if (empty)   empty.style.display   = 'none';
+    if (error)   error.style.display   = 'none';
+    if (loading) loading.style.display = 'flex';
     frame.style.display = 'none';
 
     _fluidncSetStatus('connecting', url);
@@ -515,16 +139,16 @@ function _fluidncLoad(url) {
 
 window.connectToDevice = function () {
     const input = document.getElementById('deviceUrl');
-    const url = _fluidncNormalize(input.value);
+    const url = _fluidncNormalize(input?.value || '');
     if (!url) { _fluidncSetStatus('disconnected'); return; }
-
     localStorage.setItem(KEY_FLUIDNC_LAST, url);
     _fluidncSaveUrl(url);
     _fluidncLoad(url);
 };
 
 window.quickConnect = function (url) {
-    document.getElementById('deviceUrl').value = url;
+    const inp = document.getElementById('deviceUrl');
+    if (inp) inp.value = url;
     localStorage.setItem(KEY_FLUIDNC_LAST, url);
     _fluidncSaveUrl(url);
     _fluidncLoad(url);
@@ -536,54 +160,56 @@ window.retryManual = function () {
 };
 
 window.openConnectionInNewTab = function () {
-    const url = localStorage.getItem(KEY_FLUIDNC_LAST) || _fluidncNormalize(document.getElementById('deviceUrl').value);
+    const url = localStorage.getItem(KEY_FLUIDNC_LAST) || _fluidncNormalize(document.getElementById('deviceUrl')?.value || '');
     if (url) window.open(url, '_blank');
 };
 
 window.closeConnection = function () {
     const frame = document.getElementById('fluidncFrame');
-    frame.src = 'about:blank';
-    frame.style.display = 'none';
-    document.getElementById('manualLoading').style.display = 'none';
-    document.getElementById('manualError').style.display = 'none';
-    document.getElementById('manualEmpty').style.display = 'flex';
+    if (frame) { frame.src = 'about:blank'; frame.style.display = 'none'; }
+    const loading = document.getElementById('manualLoading');
+    const error   = document.getElementById('manualError');
+    const empty   = document.getElementById('manualEmpty');
+    if (loading) loading.style.display = 'none';
+    if (error)   error.style.display   = 'none';
+    if (empty)   empty.style.display   = 'flex';
     localStorage.removeItem(KEY_FLUIDNC_LAST);
     _fluidncSetStatus('disconnected');
 };
 
 window.onManualFrameLoad = function () {
-    document.getElementById('manualLoading').style.display = 'none';
-    document.getElementById('fluidncFrame').style.display = 'block';
+    const loading = document.getElementById('manualLoading');
+    const frame   = document.getElementById('fluidncFrame');
+    if (loading) loading.style.display = 'none';
+    if (frame)   frame.style.display   = 'block';
     const url = localStorage.getItem(KEY_FLUIDNC_LAST) || '';
     _fluidncSetStatus('connected', url);
 };
 
 window.onManualFrameError = function () {
-    document.getElementById('manualLoading').style.display = 'none';
-    document.getElementById('fluidncFrame').style.display = 'none';
-    document.getElementById('manualErrMsg').textContent =
-        'Không thể tải giao diện FluidNC. Kiểm tra lại IP/URL và đảm bảo bạn đang cùng mạng LAN với máy CNC.';
-    document.getElementById('manualError').style.display = 'flex';
+    const loading = document.getElementById('manualLoading');
+    const frame   = document.getElementById('fluidncFrame');
+    const errMsg  = document.getElementById('manualErrMsg');
+    const error   = document.getElementById('manualError');
+    if (loading) loading.style.display = 'none';
+    if (frame)   frame.style.display   = 'none';
+    if (errMsg)  errMsg.textContent = 'Không thể tải giao diện FluidNC. Kiểm tra lại IP/URL và đảm bảo bạn đang cùng mạng LAN với máy CNC.';
+    if (error)   error.style.display   = 'flex';
     _fluidncSetStatus('error');
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
-// MODE TOGGLE
-// ═══════════════════════════════════════════════════════════════════════════
-
+// ── Mode toggle ───────────────────────────────────────────────────────────
+let _mode = 'manual';
 window.setMode = function (mode) {
     _mode = mode;
-    document.getElementById('modeManual').classList.toggle('active', mode === 'manual');
-    document.getElementById('modeAuto').classList.toggle('active', mode === 'auto');
-    document.getElementById('btnManual').classList.toggle('active', mode === 'manual');
-    document.getElementById('btnAuto').classList.toggle('active', mode === 'auto');
+    _el('modeManual')?.classList.toggle('active', mode === 'manual');
+    _el('modeAuto')?.classList.toggle('active', mode === 'auto');
+    _el('btnManual')?.classList.toggle('active', mode === 'manual');
+    _el('btnAuto')?.classList.toggle('active', mode === 'auto');
     if (mode === 'auto') fetchGcodeList();
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
-// MACHINE STATUS
-// ═══════════════════════════════════════════════════════════════════════════
-
+// ── Machine status ────────────────────────────────────────────────────────
 async function fetchMachineStatus() {
     try {
         const d = await api.get('/api/control/status');
@@ -591,44 +217,47 @@ async function fetchMachineStatus() {
         const pos = d.position || {};
         const curA = d.current_A || 0;
 
-        const dot = document.getElementById('machDot');
+        const dot = _el('machDot');
         if (dot) dot.className = `ms-dot ${state === 'Run' ? 'on' : state === 'Alarm' ? 'off' : state === 'Hold' ? 'warn' : 'idle'}`;
-        _el('machState').textContent = state;
-        _el('machPos').textContent = `X:${(pos.x || 0).toFixed(1)} Y:${(pos.y || 0).toFixed(1)} Z:${(pos.z || 0).toFixed(1)}`;
+        if (_el('machState')) _el('machState').textContent = state;
+        if (_el('machPos'))   _el('machPos').textContent   = `X:${(pos.x || 0).toFixed(1)} Y:${(pos.y || 0).toFixed(1)} Z:${(pos.z || 0).toFixed(1)}`;
+        if (_el('autoState')) _el('autoState').textContent = state;
+        if (_el('autoX'))     _el('autoX').textContent     = (pos.x || 0).toFixed(2);
+        if (_el('autoY'))     _el('autoY').textContent     = (pos.y || 0).toFixed(2);
+        if (_el('autoZ'))     _el('autoZ').textContent     = (pos.z || 0).toFixed(2);
+        if (_el('autoI'))     _el('autoI').textContent     = curA.toFixed(2);
 
-        _el('autoState').textContent = state;
-        _el('autoX').textContent = (pos.x || 0).toFixed(2);
-        _el('autoY').textContent = (pos.y || 0).toFixed(2);
-        _el('autoZ').textContent = (pos.z || 0).toFixed(2);
-        _el('autoI').textContent = curA.toFixed(2);
+        // Cập nhật tp3dX/Y/Z nếu có (hiển thị vị trí trong panel 3D)
+        if (_el('tp3dX')) _el('tp3dX').textContent = (pos.x || 0).toFixed(2);
+        if (_el('tp3dY')) _el('tp3dY').textContent = (pos.y || 0).toFixed(2);
+        if (_el('tp3dZ')) _el('tp3dZ').textContent = (pos.z || 0).toFixed(2);
     } catch (_) {}
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// G-CODE LIST
-// ═══════════════════════════════════════════════════════════════════════════
-
+// ── G-Code list ───────────────────────────────────────────────────────────
 async function fetchGcodeList() {
     try {
         const data = await api.get('/api/gcode/history', { limit: 20 });
         _renderGcodeList(data);
     } catch (e) {
-        document.getElementById('gcodeList').innerHTML = `<div class="gc-empty">❌ ${e.message}</div>`;
+        const el = _el('gcodeList');
+        if (el) el.innerHTML = `<div class="gc-empty">❌ ${e.message}</div>`;
     }
 }
 
 function _renderGcodeList(data) {
-    const el = document.getElementById('gcodeList');
+    const el = _el('gcodeList');
+    if (!el) return;
     const pending = data.filter(g => ['pending_validation', 'pending_confirmation', 'approved', 'confirmed'].includes(g.status));
     if (!pending.length) { el.innerHTML = '<div class="gc-empty">📭 Không có G-code đang chờ</div>'; return; }
     el.innerHTML = pending.map(g => {
         const stClass = g.status === 'confirmed' ? 'gc-s-conf' : g.status === 'approved' ? 'gc-s-conf' : g.status === 'rejected' ? 'gc-s-rej' : 'gc-s-pend';
         const stLabel = g.status === 'confirmed' ? 'Confirmed' : g.status === 'approved' ? 'Approved' : 'Chờ';
-        const canRun = g.status === 'confirmed';
+        const canRun  = g.status === 'confirmed';
         const canConf = ['approved', 'pending_confirmation', 'pending_validation'].includes(g.status);
         const actions = [
             canConf ? `<button class="gc-btn conf" onclick="confirmGcode('${g._id}',this)">✓ Confirm</button>` : '',
-            canRun ? `<button class="gc-btn run" onclick="runGcode('${g._id}',this)">▶ Run</button>` : '',
+            canRun  ? `<button class="gc-btn run"  onclick="runGcode('${g._id}',this)">▶ Run</button>` : '',
             `<button class="gc-btn" onclick="previewGcode('${g._id}')">👁</button>`,
         ].filter(Boolean).join('');
         return `<div class="gc-item">
@@ -640,135 +269,110 @@ function _renderGcodeList(data) {
 }
 
 async function confirmGcode(id, btn) {
-    btn.disabled = true;
-    btn.textContent = '...';
-    try {
-        await api.post(`/api/gcode/${id}/confirm`);
-        _showCtrlMsg('✅ Đã confirm G-code', 'var(--status-active)');
-        fetchGcodeList();
-    } catch (e) {
-        btn.disabled = false;
-        btn.textContent = '✓ Confirm';
-        _showCtrlMsg('❌ ' + e.message, 'var(--status-alarm)');
-    }
+    btn.disabled = true; btn.textContent = '...';
+    try { await api.post(`/api/gcode/${id}/confirm`); _showCtrlMsg('✅ Đã confirm G-code', 'var(--status-active)'); fetchGcodeList(); }
+    catch (e) { btn.disabled = false; btn.textContent = '✓ Confirm'; _showCtrlMsg('❌ ' + e.message, 'var(--status-alarm)'); }
 }
 
 async function runGcode(id, btn) {
     if (!confirm('Xác nhận chạy G-code này?')) return;
-    btn.disabled = true;
-    btn.textContent = '⏳...';
+    btn.disabled = true; btn.textContent = '⏳...';
+    try { await api.post(`/api/control/run/${id}`); _showCtrlMsg('▶️ Đang chạy G-code...', 'var(--status-active)'); fetchGcodeList(); }
+    catch (e) { btn.disabled = false; btn.textContent = '▶ Run'; _showCtrlMsg('❌ ' + e.message, 'var(--status-alarm)'); }
+}
+
+async function previewGcode(id) {
+    _showCtrlMsg(`Đang load G-code ${id.slice(-6)}...`, 'var(--text-muted)');
     try {
-        await api.post(`/api/control/run/${id}`);
-        _showCtrlMsg('▶️ Đang chạy G-code...', 'var(--status-active)');
-        fetchGcodeList();
+        const doc = await api.get(`/api/gcode/${id}`);
+        const content = doc?.gcode || '';
+        if (!content) throw new Error('G-code rỗng');
+        setGCodeFromAI(content);
+        _showCtrlMsg(`✅ Đã load G-code ${id.slice(-6)}`, 'var(--status-active)');
     } catch (e) {
-        btn.disabled = false;
-        btn.textContent = '▶ Run';
-        _showCtrlMsg('❌ ' + e.message, 'var(--status-alarm)');
+        _showCtrlMsg(`❌ ${e.message}`, 'var(--status-alarm)');
     }
 }
 
-function previewGcode(id) {
-    document.getElementById('toolpathStatus').textContent = `Đang load G-code ${id.slice(-6)}...`;
-    fetch(`/api/gcode/${id}`)
-        .then(r => r.json())
-        .then(doc => {
-            const content = doc?.gcode || '';
-            if (!content) throw new Error('G-code rỗng');
-            updateToolpath(content);
-            document.getElementById('toolpathStatus').textContent = `✅ Đã vẽ toolpath ${id.slice(-6)}`;
-        })
-        .catch(e => {
-            document.getElementById('toolpathStatus').textContent = `❌ ${e.message}`;
-        });
-}
-
 window.fetchGcodeList = fetchGcodeList;
-window.confirmGcode = confirmGcode;
-window.runGcode = runGcode;
-window.previewGcode = previewGcode;
+window.confirmGcode   = confirmGcode;
+window.runGcode       = runGcode;
+window.previewGcode   = previewGcode;
 
-// ═══════════════════════════════════════════════════════════════════════════
-// QUICK ACTIONS
-// ═══════════════════════════════════════════════════════════════════════════
-
+// ── Quick actions ─────────────────────────────────────────────────────────
 window.sendCmd = async function (action) {
     _showCtrlMsg(`⚡ ${action}...`, 'var(--status-warning)');
     try {
         await api.post(`/api/control/${action}`);
         const msgs = { home: '🏠 Lệnh Home đã gửi', stop: '⏸ Feed Hold đã gửi', resume: '▶️ Resume đã gửi', unlock: '🔓 Unlock đã gửi' };
         _showCtrlMsg(msgs[action] || '✅ OK', 'var(--status-active)');
-    } catch (e) {
-        _showCtrlMsg('❌ ' + e.message, 'var(--status-alarm)');
-    }
+    } catch (e) { _showCtrlMsg('❌ ' + e.message, 'var(--status-alarm)'); }
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
-// ESTOP
-// ═══════════════════════════════════════════════════════════════════════════
-
+// ── ESTOP ─────────────────────────────────────────────────────────────────
 window.sendEstop = async function () {
     if (!confirm('⚠️ DỪNG KHẨN CẤP?\nMáy sẽ dừng ngay lập tức!')) return;
     const btn = document.getElementById('estopFab');
-    btn.style.animation = 'pulse 0.3s infinite';
+    if (btn) btn.style.animation = 'pulse 0.3s infinite';
     try {
         await api.post('/api/control/estop');
         _showCtrlMsg('🛑 ESTOP đã gửi — Máy đang dừng', 'var(--status-alarm)');
-    } catch (e) {
-        _showCtrlMsg('❌ ' + e.message, 'var(--status-alarm)');
-    }
-    btn.style.animation = '';
+    } catch (e) { _showCtrlMsg('❌ ' + e.message, 'var(--status-alarm)'); }
+    if (btn) btn.style.animation = '';
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
-// JOG
-// ═══════════════════════════════════════════════════════════════════════════
-
+// ── Jog ───────────────────────────────────────────────────────────────────
 window.jog = async function (axis, dir) {
-    const dist = parseFloat(document.getElementById('jogDist').value) * dir;
-    const feed = parseFloat(document.getElementById('jogFeed').value);
+    const dist = parseFloat(_el('jogDist')?.value || 1) * dir;
+    const feed = parseFloat(_el('jogFeed')?.value || 500);
     try {
         await api.post('/api/control/jog', { axis, distance: dist, feed });
         _showCtrlMsg(`🎮 Jog ${axis}${dist > 0 ? '+' : ''}${dist}mm F${feed}`, 'var(--status-active)');
-    } catch (e) {
-        _showCtrlMsg('❌ ' + e.message, 'var(--status-alarm)');
-    }
+    } catch (e) { _showCtrlMsg('❌ ' + e.message, 'var(--status-alarm)'); }
 };
 
-// ═══════════════════════════════════════════════════════════════════════════
-// G-CODE FROM AI
-// ═══════════════════════════════════════════════════════════════════════════
-
+// ── G-CODE từ AI / file ───────────────────────────────────────────────────
 function setGCodeFromAI(gcode) {
     currentGCode = gcode;
-    const preview = document.getElementById('gcodePreview');
+    const preview = _el('gcodePreview');
     if (preview) {
         preview.innerHTML = `<pre style="margin:0;white-space:pre-wrap;font-size:10px;">${gcode}</pre>`;
     }
-    const btn = document.getElementById('downloadBtn');
+    const btn = _el('downloadBtn');
     if (btn) btn.disabled = false;
 
-    // ⭐ Cập nhật 3D toolpath
-    updateToolpath(gcode);
+    // Ẩn overlay 3D khi có toolpath
+    const overlay = _el('tp3dOverlay');
+    if (overlay) overlay.style.display = 'none';
+
+    const info = _el('tp3dInfo');
+    if (info) info.textContent = `${gcode.split('\n').length} dòng G-Code`;
+
+    // Hiển thị nút Ask AI
+    const askAiBtn = _el('askAiBtn');
+    if (askAiBtn) askAiBtn.style.display = 'block';
 }
 
 function downloadGCode() {
     if (!currentGCode) { alert('Chưa có G-Code'); return; }
     const a = document.createElement('a');
-    a.download = `cnc_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.nc`;
+    a.download = `cnc_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.nc`;
     a.href = URL.createObjectURL(new Blob([currentGCode], { type: 'text/plain' }));
     a.click();
 }
 
 function clearGCode() {
     currentGCode = '';
-    const preview = document.getElementById('gcodePreview');
+    const preview = _el('gcodePreview');
     if (preview) preview.innerHTML = '⏳ Chưa có G-Code';
-    const btn = document.getElementById('downloadBtn');
+    const btn = _el('downloadBtn');
     if (btn) btn.disabled = true;
-
-    // ⭐ Xóa 3D toolpath
-    clearToolpath3D();
+    const info = _el('tp3dInfo');
+    if (info) info.textContent = 'Chưa có G-Code';
+    const overlay = _el('tp3dOverlay');
+    if (overlay) overlay.style.display = 'flex';
+    const askAiBtn = _el('askAiBtn');
+    if (askAiBtn) askAiBtn.style.display = 'none';
 }
 
 async function sendGcodeToQueue() {
@@ -786,13 +390,10 @@ async function sendGcodeToQueue() {
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// NẠP FILE G-CODE
-// ═══════════════════════════════════════════════════════════════════════════
-
-document.addEventListener('DOMContentLoaded', () => {
-    const gcFileInput = document.getElementById('gcFileInput');
-    const gcUploadArea = document.getElementById('gcUploadArea');
+// ── Nạp file G-code ───────────────────────────────────────────────────────
+function _initFileUpload() {
+    const gcFileInput  = _el('gcFileInput');
+    const gcUploadArea = _el('gcUploadArea');
 
     if (gcUploadArea) {
         gcUploadArea.addEventListener('dragover', e => {
@@ -812,7 +413,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.target.files[0]) loadGCodeFile(e.target.files[0]);
         });
     }
-});
+}
+
 
 function loadGCodeFile(file) {
     if (!/\.(nc|gcode|txt|tap|cnc|ngc)$/i.test(file.name)) {
@@ -822,27 +424,15 @@ function loadGCodeFile(file) {
     const r = new FileReader();
     r.onload = e => {
         const text = e.target.result;
-        currentGCode = text;
-        const preview = document.getElementById('gcodePreview');
-        if (preview) {
-            preview.innerHTML =
-                `<pre style="margin:0;white-space:pre-wrap;font-size:10px;">${text.slice(0, 800)}${text.length > 800 ? '\n...(còn nữa)' : ''}</pre>`;
-        }
-        const btn = document.getElementById('downloadBtn');
-        if (btn) btn.disabled = false;
+        setGCodeFromAI(text);
 
-        const gcFileName = document.getElementById('gcFileName');
-        const gcLineCount = document.getElementById('gcLineCount');
-        const gcFileInfo = document.getElementById('gcFileInfo');
-        const askAiBtn = document.getElementById('askAiBtn');
+        const gcFileName  = _el('gcFileName');
+        const gcLineCount = _el('gcLineCount');
+        const gcFileInfo  = _el('gcFileInfo');
+        if (gcFileName)  gcFileName.textContent  = `📄 ${file.name}`;
+        if (gcLineCount) gcLineCount.textContent  = `${text.split('\n').length} dòng · ${(file.size/1024).toFixed(1)} KB`;
+        if (gcFileInfo)  gcFileInfo.style.display = 'block';
 
-        if (gcFileName) gcFileName.textContent = `📄 ${file.name}`;
-        if (gcLineCount) gcLineCount.textContent = `${text.split('\n').length} dòng · ${(file.size / 1024).toFixed(1)} KB`;
-        if (gcFileInfo) gcFileInfo.style.display = 'block';
-        if (askAiBtn) askAiBtn.style.display = 'block';
-
-        // ⭐ Cập nhật 3D toolpath
-        updateToolpath(text);
         _showCtrlMsg(`✅ Đã nạp ${file.name}`, 'var(--status-active)');
     };
     r.readAsText(file);
@@ -850,27 +440,61 @@ function loadGCodeFile(file) {
 
 function askAiAboutGCode() {
     if (!currentGCode) return;
-    const input = document.getElementById('aiIn');
+    const input = _el('aiIn');
     if (input) {
         input.value = 'Hãy phân tích và tối ưu G-Code này cho tôi';
         input.focus();
     }
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// EXPORT
-// ═══════════════════════════════════════════════════════════════════════════
+// ── 3D viewer stubs (canvas-based, tích hợp sau nếu cần Three.js) ─────────
+function tp3dToggleGrid()    { _toggleTpBtn('btnTpGrid'); }
+function tp3dToggleAxes()    { _toggleTpBtn('btnTpAxes'); }
+function tp3dToggleBox()     { _toggleTpBtn('btnTpBox'); }
+function tp3dToggleZPlane()  { _toggleTpBtn('btnTpZPlane'); }
+function tp3dReset()         {}   // Reset camera view
+function tp3dSimulate()      {}
+function tp3dStop()          {}
+function tp3dResetSim()      {
+    // Reset tiến trình về 0
+    ['tp3dX','tp3dY','tp3dZ'].forEach(id => { const el = _el(id); if (el) el.textContent = '0'; });
+    const prog = _el('tp3dProgress'); if (prog) prog.textContent = '0%';
+    const fill = _el('tp3dFill');     if (fill) fill.style.width = '0%';
+}
+function _toggleTpBtn(id) {
+    const btn = _el(id);
+    if (btn) btn.classList.toggle('active');
+}
 
-window.setGCodeFromAI = setGCodeFromAI;
-window.downloadGCode = downloadGCode;
-window.clearGCode = clearGCode;
-window.sendGcodeToQueue = sendGcodeToQueue;
-window.loadGCodeFile = loadGCodeFile;
-window.askAiAboutGCode = askAiAboutGCode;
-window.tp3dToggleGrid = tp3dToggleGrid;
-window.tp3dToggleAxes = tp3dToggleAxes;
-window.tp3dToggleBox = tp3dToggleBox;
-window.tp3dResetView = tp3dResetView;
-window.tp3dSimulate = tp3dSimulate;
-window.tp3dStop = tp3dStop;
-window.tp3dResetSim = tp3dResetSim;
+// ── Speed slider: cập nhật fill + giá trị ────────────────────────────────
+(function initSpeedSlider() {
+    const slider   = _el('simSpeedSlider');
+    const speedVal = _el('simSpeedValue');
+    const speedFill = _el('simSpeedFill');
+    if (slider) {
+        slider.addEventListener('input', () => {
+            const v = parseFloat(slider.value);
+            if (speedVal)  speedVal.textContent  = v.toFixed(1) + 'x';
+            if (speedFill) {
+                const pct = ((v - 0.2) / (3 - 0.2)) * 100;
+                speedFill.style.width = pct + '%';
+            }
+        });
+    }
+})();
+
+// ── Export ra window ──────────────────────────────────────────────────────
+window.setGCodeFromAI    = setGCodeFromAI;
+window.downloadGCode     = downloadGCode;
+window.clearGCode        = clearGCode;
+window.sendGcodeToQueue  = sendGcodeToQueue;
+window.loadGCodeFile     = loadGCodeFile;
+window.askAiAboutGCode   = askAiAboutGCode;
+window.tp3dToggleGrid    = tp3dToggleGrid;
+window.tp3dToggleAxes    = tp3dToggleAxes;
+window.tp3dToggleBox     = tp3dToggleBox;
+window.tp3dToggleZPlane  = tp3dToggleZPlane;
+window.tp3dReset         = tp3dReset;
+window.tp3dSimulate      = tp3dSimulate;
+window.tp3dStop          = tp3dStop;
+window.tp3dResetSim      = tp3dResetSim;
