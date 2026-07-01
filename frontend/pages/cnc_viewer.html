@@ -617,6 +617,12 @@ function applyThemeToViewer() {
 }
 
 window.addEventListener('storage', (event) => {
+       if (ev.data?.type === 'ping') {
+        // Gửi pong để báo đã sẵn sàng
+        if (window.parent !== window) {
+            window.parent.postMessage({ type: 'pong' }, '*');
+        }
+    }
     if (event.key === 'cnc_theme' && event.newValue) {
         try {
             const theme = JSON.parse(event.newValue);
