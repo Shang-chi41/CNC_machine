@@ -24,7 +24,7 @@ body { flex-direction:column; overflow:hidden; height:100vh; }
     padding: 8px 16px;
 }
 
-/* ── Top bar: State + Time controls ── */
+/* ── Top bar: State + Update time ── */
 .panel-top-bar {
     display: flex;
     align-items: center;
@@ -59,32 +59,16 @@ body { flex-direction:column; overflow:hidden; height:100vh; }
     min-width: 70px;
 }
 
-.time-controls {
+.update-time {
     display: flex;
-    gap: 4px;
+    align-items: center;
 }
 
-.ctrl-btn {
-    padding: 4px 12px;
-    font-family: 'Orbitron', monospace;
+.st-time {
     font-size: 9px;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-    background: var(--gray-sidebar);
-    border: 1px solid var(--gray-border);
     color: var(--text-muted);
-    border-radius: 3px;
-    cursor: pointer;
-    transition: var(--transition);
-}
-.ctrl-btn:hover {
-    border-color: var(--cyan-portal);
-    color: var(--cyan-portal);
-}
-.ctrl-btn.active {
-    background: var(--cyan-portal);
-    color: white;
-    border-color: var(--cyan-portal);
+    font-family: monospace;
+    white-space: nowrap;
 }
 
 /* ── Data Grid ── */
@@ -179,14 +163,6 @@ body { flex-direction:column; overflow:hidden; height:100vh; }
     background: rgba(204, 0, 0, 0.12);
     border-color: var(--status-alarm);
     color: #880000;
-}
-
-.st-time {
-    font-size: 9px;
-    color: var(--text-muted);
-    font-family: monospace;
-    white-space: nowrap;
-    margin-left: auto;
 }
 
 .load-pill {
@@ -440,8 +416,5 @@ body { flex-direction:column; overflow:hidden; height:100vh; }
     }
     .status-badges {
         gap: 6px;
-    }
-    .st-time {
-        margin-left: 0;
     }
 }
