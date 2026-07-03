@@ -368,5 +368,46 @@
 </div><!-- .app-shell -->
 
 <script type="module" src="/static/js/history.js"></script>
+
+<!-- ══ CLEANUP SCRIPT ══ -->
+<script>
+// Hỗ trợ cleanup khi rời trang
+window.addEventListener('beforeunload', function() {
+    try {
+        // Gọi hàm destroy charts nếu có
+        if (window.destroyAllCharts) {
+            window.destroyAllCharts();
+        }
+        // Hoặc truy cập trực tiếp vào chartInstances nếu có
+        if (window.chartInstances) {
+            Object.values(window.chartInstances).forEach(chart => {
+                if (chart && typeof chart.destroy === 'function') {
+                    chart.destroy();
+                }
+            });
+            window.chartInstances = {};
+        }
+    } catch (e) {
+        // Bỏ qua lỗi cleanup
+    }
+});
+
+// Hỗ trợ dừng interval khi rời trang
+document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
+        // Tab bị ẩn - có thể dừng các interval nếu cần
+        if (window.stopAutoUpdate) {
+            window.stopAutoUpdate();
+        }
+    } else {
+        // Tab được hiển thị lại - khởi động lại nếu cần
+        if (window.startAutoUpdate && document.querySelector('#tab-sensor.active')) {
+            window.startAutoUpdate();
+            if (window.fetchSensor) window.fetchSensor();
+        }
+    }
+});
+</script>
+
 </body>
 </html>
