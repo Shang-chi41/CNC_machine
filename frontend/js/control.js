@@ -51,21 +51,36 @@ function _watchGcodePreview() {
     const preview = _el("gcodePreview");
     if (!preview) return;
 
-    const observer = new MutationObserver(async () => {
+    // 'input' event tốt hơn MutationObserver cho contenteditable
+    preview.addEventListener('input', async () => {
         if (!_gcodeIntegrity.storedChecksum) return;
-        const current = await _calcSHA256((preview.innerText || preview.textContent || "").trim());
+
+        const text = (preview.innerText || preview.textContent || "").trim();
+
+        // Sync currentGCode khi người dùng edit trực tiếp
+        currentGCode = text;
+
+        const current = await _calcSHA256(text);
         if (current !== _gcodeIntegrity.storedChecksum) {
             _gcodeIntegrity.isModified = true;
+            preview.classList.add('is-modified');
             _showModifiedWarning();
             _disableConfirmRunButtons();
         } else {
+            // Đã sửa lại về đúng nội dung gốc
             _gcodeIntegrity.isModified = false;
+            preview.classList.remove('is-modified');
             _hideModifiedWarning();
             _enableConfirmRunButtons();
         }
     });
 
-    observer.observe(preview, { childList: true, subtree: true, characterData: true });
+    // Paste event — strip HTML formatting, chỉ giữ plain text
+    preview.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+        document.execCommand('insertText', false, text);
+    });
 }
 
 function _showModifiedWarning() {
