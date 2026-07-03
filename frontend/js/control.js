@@ -22,6 +22,76 @@ theme.init();
 // ⭐ HELPER FUNCTIONS
 function _el(id) { return document.getElementById(id); }
 
+// ── G-CODE INTEGRITY — phát hiện sửa đổi sau khi approved ────────────────
+let _gcodeIntegrity = {
+    id:             null,   // _id của G-code đang hiển thị
+    storedChecksum: null,   // SHA-256 checksum lưu từ server khi load
+    isModified:     false,  // true nếu phát hiện nội dung đã thay đổi
+};
+
+/** Tính SHA-256 (hex) của một chuỗi bằng SubtleCrypto. */
+async function _calcSHA256(text) {
+    const buf = await crypto.subtle.digest(
+        "SHA-256",
+        new TextEncoder().encode(text)
+    );
+    return Array.from(new Uint8Array(buf))
+        .map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** Gọi sau khi load G-code vào preview — khởi tạo checksum gốc. */
+async function _initGcodeIntegrity(content) {
+    _gcodeIntegrity.storedChecksum = await _calcSHA256(content.trim());
+    _gcodeIntegrity.isModified     = false;
+    _hideModifiedWarning();
+}
+
+/** Gọi 1 lần trong DOMContentLoaded — theo dõi mọi thay đổi trong gcodePreview. */
+function _watchGcodePreview() {
+    const preview = _el("gcodePreview");
+    if (!preview) return;
+
+    const observer = new MutationObserver(async () => {
+        if (!_gcodeIntegrity.storedChecksum) return;
+        const current = await _calcSHA256((preview.innerText || preview.textContent || "").trim());
+        if (current !== _gcodeIntegrity.storedChecksum) {
+            _gcodeIntegrity.isModified = true;
+            _showModifiedWarning();
+            _disableConfirmRunButtons();
+        } else {
+            _gcodeIntegrity.isModified = false;
+            _hideModifiedWarning();
+            _enableConfirmRunButtons();
+        }
+    });
+
+    observer.observe(preview, { childList: true, subtree: true, characterData: true });
+}
+
+function _showModifiedWarning() {
+    const banner = _el("gcodeModifiedBanner");
+    if (banner) banner.style.display = "flex";
+}
+
+function _hideModifiedWarning() {
+    const banner = _el("gcodeModifiedBanner");
+    if (banner) banner.style.display = "none";
+}
+
+function _disableConfirmRunButtons() {
+    document.querySelectorAll(".gc-btn.conf, .gc-btn.run").forEach(btn => {
+        btn.disabled = true;
+        btn.title    = "G-code đã bị sửa — cần kiểm tra lại";
+    });
+}
+
+function _enableConfirmRunButtons() {
+    document.querySelectorAll(".gc-btn.conf, .gc-btn.run").forEach(btn => {
+        btn.disabled = false;
+        btn.title    = "";
+    });
+}
+
 function _showCtrlMsg(msg, color) {
     const el = document.getElementById('ctrlMsg');
     if (el) {
@@ -75,6 +145,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (window.location.hash === '#ai') setMode('auto');
+
+    // ⭐ Khởi tạo theo dõi integrity G-code (phát hiện sửa đổi sau approved)
+    _watchGcodePreview();
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -675,6 +748,19 @@ function _renderGcodeList(data) {
 
 async function confirmGcode(id, btn) {
     btn.disabled = true; btn.textContent = '...';
+    // Verify integrity trước khi confirm — block nếu G-code đã bị sửa
+    if (_gcodeIntegrity.storedChecksum && currentGCode) {
+        try {
+            const check = await api.post(`/api/gcode/${id}/verify_checksum`, { content: currentGCode });
+            if (!check.match) {
+                btn.disabled = false; btn.textContent = '✓ Confirm';
+                _showModifiedWarning();
+                _disableConfirmRunButtons();
+                _showCtrlMsg('⚠️ G-code đã bị sửa — cần kiểm tra lại trước khi confirm', 'var(--status-warning)');
+                return;
+            }
+        } catch (_) { /* không có checksum cũ → bỏ qua, để backend xử lý */ }
+    }
     try {
         await api.post(`/api/gcode/${id}/confirm`);
         _showCtrlMsg('✅ Đã confirm G-code', 'var(--status-active)');
@@ -808,6 +894,23 @@ window.previewGcode        = previewGcode;
 window.showRejectionReason = showRejectionReason;
 window.closeRejectionModal = closeRejectionModal;
 
+// ── Nút "🔍 Kiểm tra lại" trên gcodeModifiedBanner ────────────────────────
+window.revalidateModifiedGcode = async function () {
+    if (!currentGCode || !currentGCode.trim()) return;
+    _showCtrlMsg("🔍 Đang gửi G-code để kiểm tra lại...", "var(--status-warning)");
+    try {
+        await api.post("/api/gcode/save", {
+            content:  currentGCode,
+            source:   "ai",
+            filename: `recheck_${Date.now()}.nc`,
+        });
+        _showCtrlMsg("✅ Đã gửi G-code mới vào queue — chờ AI validate", "var(--status-active)");
+        fetchGcodeList();
+    } catch (e) {
+        _showCtrlMsg("❌ " + e.message, "var(--status-alarm)");
+    }
+};
+
 // ═══════════════════════════════════════════════════════════════════════════
 // QUICK ACTIONS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -866,6 +969,8 @@ function setGCodeFromAI(gcode) {
     const btn = _el('downloadBtn');
     if (btn) btn.disabled = false;
     updateToolpath(gcode);
+    // Khởi tạo checksum gốc sau khi load G-code mới
+    _initGcodeIntegrity(gcode);
 }
 
 function downloadGCode() {
@@ -947,6 +1052,8 @@ function loadGCodeFile(file) {
         if (askAiBtn)    askAiBtn.style.display   = 'block';
 
         updateToolpath(text);
+        // Khởi tạo checksum gốc sau khi nạp file
+        _initGcodeIntegrity(text);
         _showCtrlMsg(`✅ Đã nạp ${file.name}`, 'var(--status-active)');
     };
     r.readAsText(file);
