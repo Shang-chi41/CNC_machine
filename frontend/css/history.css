@@ -1,6 +1,7 @@
 /* history.css — ISA-101 Redesign
  * Shared base styles: isa101.css
  * Không hard-code hex mới — dùng CSS variables
+ * FIX: Ngăn chart chảy kéo dài
  */
 
 body { flex-direction:column; overflow:hidden; height:100vh; }
@@ -48,26 +49,89 @@ body { flex-direction:column; overflow:hidden; height:100vh; }
 .hist-center-row  { display:flex; gap:10px; flex:1; overflow:hidden; min-height:0; }
 
 /* Left: charts scrollable */
-.hist-charts-col { width:55%; display:flex; flex-direction:column; gap:8px; overflow-y:auto; padding-right:4px; }
+.hist-charts-col { 
+    width:55%; 
+    display:flex; 
+    flex-direction:column; 
+    gap:8px; 
+    overflow-y:auto; 
+    padding-right:4px;
+    min-height:0; /* QUAN TRỌNG: Ngăn kéo dài */
+}
+
 .hist-charts-col::-webkit-scrollbar       { width:5px; }
 .hist-charts-col::-webkit-scrollbar-track { background:var(--gray-bg); }
 .hist-charts-col::-webkit-scrollbar-thumb { background:var(--gray-border); border-radius:3px; }
 .hist-charts-col::-webkit-scrollbar-thumb:hover { background:var(--cyan-portal); }
 
 /* Right: stats column */
-.hist-stat-col { flex:1; display:flex; flex-direction:column; gap:8px; overflow:hidden; min-height:0; }
+.hist-stat-col { 
+    flex:1; 
+    display:flex; 
+    flex-direction:column; 
+    gap:8px; 
+    overflow:hidden; 
+    min-height:0; 
+}
 
-/* Chart cards */
-.chart-card { background:var(--gray-card); border:1px solid var(--gray-border); border-radius:5px; padding:8px 12px; flex-shrink:0; }
-.chart-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+/* ── Chart cards ── */
+.chart-card { 
+    background:var(--gray-card); 
+    border:1px solid var(--gray-border); 
+    border-radius:5px; 
+    padding:8px 12px; 
+    flex-shrink:0; /* QUAN TRỌNG: Không co giãn */
+    min-height:0; /* Cho phép co lại khi cần */
+}
+
+/* FIX: Giới hạn chiều cao cố định cho từng chart */
+.chart-card:nth-child(1) { min-height:140px; max-height:160px; }
+.chart-card:nth-child(2) { min-height:110px; max-height:130px; }
+.chart-card:nth-child(3) { min-height:110px; max-height:130px; }
+.chart-card:nth-child(4) { min-height:100px; max-height:120px; }
+
+.chart-header { 
+    display:flex; 
+    justify-content:space-between; 
+    align-items:center; 
+    margin-bottom:4px;
+    flex-shrink:0; 
+}
 .chart-title  { font-size:10px; color:var(--text-muted); font-weight:600; letter-spacing:1px; font-family:'Orbitron',monospace; }
 .chart-legend { display:flex; gap:12px; font-size:9px; color:var(--text-muted); }
 .leg-dot { width:9px; height:9px; border-radius:2px; display:inline-block; margin-right:3px; }
-.chart-card canvas { width:100% !important; }
+
+/* FIX: Canvas không bị kéo dài - bỏ width:100% !important */
+.chart-card canvas { 
+    width:100% !important; 
+    height:auto !important; /* QUAN TRỌNG: Cho phép canvas tự điều chỉnh */
+    max-height:100%;
+    min-height:60px;
+}
 
 /* Stats panel */
-.stat-panel { background:var(--gray-card); border:1px solid var(--gray-border); border-radius:5px; overflow:hidden; display:flex; flex-direction:column; flex-shrink:0; }
-.stat-panel-title { background:rgba(30,95,168,0.08); border-bottom:1px solid var(--gray-border); padding:6px 12px; font-family:'Orbitron',monospace; font-size:9px; font-weight:600; color:var(--cyan-portal); letter-spacing:1.2px; flex-shrink:0; }
+.stat-panel { 
+    background:var(--gray-card); 
+    border:1px solid var(--gray-border); 
+    border-radius:5px; 
+    overflow:hidden; 
+    display:flex; 
+    flex-direction:column; 
+    flex-shrink:0; 
+    min-height:0; 
+}
+
+.stat-panel-title { 
+    background:rgba(30,95,168,0.08); 
+    border-bottom:1px solid var(--gray-border); 
+    padding:6px 12px; 
+    font-family:'Orbitron',monospace; 
+    font-size:9px; 
+    font-weight:600; 
+    color:var(--cyan-portal); 
+    letter-spacing:1.2px; 
+    flex-shrink:0; 
+}
 
 /* Stats table */
 .stat-tbl { width:100%; border-collapse:collapse; font-size:11px; }
@@ -105,7 +169,15 @@ body { flex-direction:column; overflow:hidden; height:100vh; }
 /* ══════════════════════════════════════════
    SHARED TABLE STYLES
 ══════════════════════════════════════════ */
-.table-wrap { flex:1; overflow-y:auto; border:1px solid var(--gray-border); border-radius:5px; background:var(--gray-card); min-height:0; }
+.table-wrap { 
+    flex:1; 
+    overflow-y:auto; 
+    border:1px solid var(--gray-border); 
+    border-radius:5px; 
+    background:var(--gray-card); 
+    min-height:0; 
+}
+
 .table-wrap::-webkit-scrollbar       { width:5px; height:5px; }
 .table-wrap::-webkit-scrollbar-track { background:var(--gray-bg); }
 .table-wrap::-webkit-scrollbar-thumb { background:var(--gray-border); border-radius:3px; }
@@ -155,4 +227,10 @@ tbody td { padding:7px 8px; color:var(--text-secondary); vertical-align:middle; 
     .alarm-center-row { flex-direction:column; }
     .recent-events-col { width:100%; max-height:150px; }
     .tab-content { padding:8px 10px 6px; }
+    
+    /* FIX: Responsive chart heights */
+    .chart-card:nth-child(1) { min-height:120px; max-height:140px; }
+    .chart-card:nth-child(2) { min-height:90px; max-height:110px; }
+    .chart-card:nth-child(3) { min-height:90px; max-height:110px; }
+    .chart-card:nth-child(4) { min-height:80px; max-height:100px; }
 }
