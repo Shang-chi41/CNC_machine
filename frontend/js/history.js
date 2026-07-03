@@ -12,6 +12,145 @@ import { initAiChat, initSidebarStatus, initUserBar, initLogout } from '/static/
 
 theme.init();
 
+// ══ QUẢN LÝ CHART ══
+let chartInstances = {};
+let updateInterval = null;
+let isTabSensorActive = false;
+
+// Hàm hủy tất cả charts
+function destroyAllCharts() {
+    Object.keys(chartInstances).forEach(key => {
+        if (chartInstances[key]) {
+            try {
+                chartInstances[key].destroy();
+            } catch (e) {
+                console.warn('Error destroying chart:', key, e);
+            }
+            delete chartInstances[key];
+        }
+    });
+}
+
+// Hàm khởi tạo charts
+function initAllCharts() {
+    // Hủy charts cũ nếu có
+    destroyAllCharts();
+    
+    // Tạo position chart
+    const sensorChart = document.getElementById('sensorChart');
+    if (sensorChart) {
+        chartInstances.sensor = createLineChart('sensorChart', [
+            { label: 'X', color: '#e74c3c' },
+            { label: 'Y', color: '#00b894' },
+            { label: 'Z', color: '#3498db' },
+        ], { maxTicks: 8, fontSize: 9 });
+    }
+    
+    // Tạo velocity chart
+    if (document.getElementById('chartVel')) {
+        chartInstances.velocity = createLineChart('chartVel', [
+            { label: 'Vx', color: '#e74c3c' },
+            { label: 'Vy', color: '#00b894' },
+            { label: 'Vz', color: '#3498db' },
+        ], { maxTicks: 8, fontSize: 9 });
+    }
+    
+    // Tạo moment chart
+    if (document.getElementById('chartMom')) {
+        chartInstances.moment = createLineChart('chartMom', [
+            { label: 'Mx', color: '#e74c3c' },
+            { label: 'My', color: '#00b894' },
+            { label: 'Mz', color: '#3498db' },
+        ], { maxTicks: 8, fontSize: 9 });
+    }
+    
+    // Tạo current chart
+    if (document.getElementById('chartCur')) {
+        chartInstances.current = createLineChart('chartCur', [
+            { label: 'I(A)', color: '#f39c12' },
+        ], { maxTicks: 8, fontSize: 9 });
+    }
+}
+
+// Hàm cập nhật chart - chỉ cập nhật data, không tạo mới
+function updateAllCharts(data) {
+    if (!data || !data.length) return;
+    
+    // Reset all charts
+    Object.keys(chartInstances).forEach(key => {
+        const chart = chartInstances[key];
+        if (chart) {
+            chart.data.labels = [];
+            chart.data.datasets.forEach(d => d.data = []);
+        }
+    });
+
+    // Fill data
+    data.forEach(d => {
+        const ts = d.timestamp || d.mqtt_timestamp || d.created_at || '';
+        let t = '';
+        try { t = new Date(ts).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }); } 
+        catch (_) { t = ts.slice(11, 16); }
+        const axes = d.axes || {};
+
+        // Position chart
+        if (chartInstances.sensor) {
+            chartInstances.sensor.data.labels.push(t);
+            chartInstances.sensor.data.datasets[0].data.push(axes.x?.position ?? d.vi_tri_x ?? d.position?.x ?? 0);
+            chartInstances.sensor.data.datasets[1].data.push(axes.y?.position ?? d.vi_tri_y ?? d.position?.y ?? 0);
+            chartInstances.sensor.data.datasets[2].data.push(axes.z?.position ?? d.vi_tri_z ?? d.position?.z ?? 0);
+        }
+
+        // Velocity chart
+        if (chartInstances.velocity) {
+            chartInstances.velocity.data.labels.push(t);
+            chartInstances.velocity.data.datasets[0].data.push(+(axes.x?.velocity ?? d.van_toc_x ?? 0));
+            chartInstances.velocity.data.datasets[1].data.push(+(axes.y?.velocity ?? d.van_toc_y ?? 0));
+            chartInstances.velocity.data.datasets[2].data.push(+(axes.z?.velocity ?? d.van_toc_z ?? 0));
+        }
+
+        // Moment chart
+        if (chartInstances.moment) {
+            chartInstances.moment.data.labels.push(t);
+            chartInstances.moment.data.datasets[0].data.push(+(axes.x?.torque ?? d.moment_x ?? 0));
+            chartInstances.moment.data.datasets[1].data.push(+(axes.y?.torque ?? d.moment_y ?? 0));
+            chartInstances.moment.data.datasets[2].data.push(+(axes.z?.torque ?? d.moment_z ?? 0));
+        }
+
+        // Current chart
+        if (chartInstances.current) {
+            chartInstances.current.data.labels.push(t);
+            chartInstances.current.data.datasets[0].data.push(+(d.current?.rms ?? d.load ?? 0));
+        }
+    });
+
+    // Update all charts with animation disabled
+    Object.keys(chartInstances).forEach(key => {
+        const chart = chartInstances[key];
+        if (chart) {
+            chart.update('none');
+        }
+    });
+}
+
+// ══ AUTO UPDATE ══
+function startAutoUpdate() {
+    stopAutoUpdate();
+    updateInterval = setInterval(() => {
+        if (isTabSensorActive) {
+            fetchSensor();
+        }
+    }, 5000); // 5 giây
+}
+
+function stopAutoUpdate() {
+    if (updateInterval) {
+        clearInterval(updateInterval);
+        updateInterval = null;
+    }
+}
+
+// ══ DOM READY ══
 document.addEventListener('DOMContentLoaded', () => {
     if (!auth.guard()) return;
 
@@ -21,116 +160,96 @@ document.addEventListener('DOMContentLoaded', () => {
     initAiChat();
 
     document.getElementById('nav-history')?.classList.add('active');
-    setInterval(() => { const el = document.getElementById('pageClk'); if (el) el.textContent = new Date().toLocaleTimeString('vi-VN'); }, 1000);
+    setInterval(() => { 
+        const el = document.getElementById('pageClk'); 
+        if (el) el.textContent = new Date().toLocaleTimeString('vi-VN'); 
+    }, 1000);
 
-    fetchSensor(); // tab mac dinh
+    // Khởi tạo charts
+    initAllCharts();
+    
+    // Lazy load data cho tab sensor mặc định
+    isTabSensorActive = true;
+    fetchSensor();
+    startAutoUpdate();
+    
+    // Xử lý visibility change - pause khi tab không được focus
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            stopAutoUpdate();
+        } else {
+            if (isTabSensorActive) {
+                startAutoUpdate();
+                fetchSensor();
+            }
+        }
+    });
 });
 
 // ══ Tabs ══
 window.switchTab = function (tab, btn) {
+    // Update tab buttons
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById(`tab-${tab}`)?.classList.add('active');
+    
+    // Update active state
+    isTabSensorActive = (tab === 'sensor');
+    
+    // Quản lý auto update
+    if (tab === 'sensor') {
+        startAutoUpdate();
+        // Cập nhật lại charts nếu đã bị destroy
+        if (!chartInstances.sensor || Object.keys(chartInstances).length === 0) {
+            initAllCharts();
+        }
+        fetchSensor();
+    } else {
+        stopAutoUpdate();
+        // Hủy charts khi rời khỏi tab sensor để tiết kiệm memory
+        if (tab !== 'sensor' && chartInstances.sensor) {
+            destroyAllCharts();
+        }
+    }
+    
+    // Load data cho tab
     const loaders = { sensor: fetchSensor, alarm: fetchAlarms, gcode: fetchGcode, chat: fetchChat };
     loaders[tab]?.();
 };
 
 // ══ SENSOR ══
-let _sensorChart, _cVel, _cMom, _cCur;
-function _initSensorChart() {
-    _sensorChart = createLineChart('sensorChart', [
-        { label: 'X', color: '#e74c3c' },
-        { label: 'Y', color: '#00b894' },
-        { label: 'Z', color: '#3498db' },
-    ], { maxTicks: 8, fontSize: 9 });
-
-    // Khởi tạo thêm 3 chart mới nếu canvas tồn tại
-    if (document.getElementById('chartVel')) {
-        _cVel = createLineChart('chartVel', [
-            { label: 'Vx', color: '#e74c3c' },
-            { label: 'Vy', color: '#00b894' },
-            { label: 'Vz', color: '#3498db' },
-        ], { maxTicks: 8, fontSize: 9 });
-    }
-    if (document.getElementById('chartMom')) {
-        _cMom = createLineChart('chartMom', [
-            { label: 'Mx', color: '#e74c3c' },
-            { label: 'My', color: '#00b894' },
-            { label: 'Mz', color: '#3498db' },
-        ], { maxTicks: 8, fontSize: 9 });
-    }
-    if (document.getElementById('chartCur')) {
-        _cCur = createLineChart('chartCur', [
-            { label: 'I(A)', color: '#f39c12' },
-        ], { maxTicks: 8, fontSize: 9 });
-    }
-}
-
 async function fetchSensor() {
-    if (!_sensorChart) _initSensorChart();
+    // Nếu không có chart và tab sensor đang active, khởi tạo lại
+    if (!chartInstances.sensor || Object.keys(chartInstances).length === 0) {
+        if (isTabSensorActive) {
+            initAllCharts();
+        } else {
+            return;
+        }
+    }
+    
     const minutes = document.getElementById('sensorRange')?.value || 1440;
     const source = document.getElementById('sensorSource')?.value || 'physical';
     const ep = source === 'virtual' ? '/api/monitor/simulation/history' : '/api/monitor/sensor/history';
+    
     try {
         const data = await api.get(ep, { minutes, limit: 500 });
         document.getElementById('cnt-sensor').textContent = data.length;
         _renderSensorTable(data);
-        _renderSensorChart(data);
+        
+        // Chỉ cập nhật chart nếu tab sensor đang active
+        if (isTabSensorActive && data.length > 0) {
+            updateAllCharts(data);
+        }
+        
         _renderSensorSummary(data);
     } catch (e) {
         document.getElementById('sensorBody').innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-icon">❌</div>${e.message}</div></td></tr>`;
     }
 }
 
-function _renderSensorChart(data) {
-    if (!_sensorChart) return;
-
-    // Clear all charts
-    const charts = [_sensorChart, _cVel, _cMom, _cCur].filter(Boolean);
-    charts.forEach(c => {
-        c.data.labels = [];
-        c.data.datasets.forEach(d => d.data = []);
-    });
-
-    data.forEach(d => {
-        const ts = d.timestamp || d.mqtt_timestamp || d.created_at || '';
-        let t = '';
-        try { t = new Date(ts).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }); } catch (_) { t = ts.slice(11, 16); }
-        const axes = d.axes || {};
-
-        // Position chart
-        _sensorChart.data.labels.push(t);
-        _sensorChart.data.datasets[0].data.push(axes.x?.position ?? d.vi_tri_x ?? d.position?.x ?? 0);
-        _sensorChart.data.datasets[1].data.push(axes.y?.position ?? d.vi_tri_y ?? d.position?.y ?? 0);
-        _sensorChart.data.datasets[2].data.push(axes.z?.position ?? d.vi_tri_z ?? d.position?.z ?? 0);
-
-        // Velocity chart
-        if (_cVel) {
-            _cVel.data.labels.push(t);
-            _cVel.data.datasets[0].data.push(+(axes.x?.velocity ?? d.van_toc_x ?? 0));
-            _cVel.data.datasets[1].data.push(+(axes.y?.velocity ?? d.van_toc_y ?? 0));
-            _cVel.data.datasets[2].data.push(+(axes.z?.velocity ?? d.van_toc_z ?? 0));
-        }
-
-        // Moment chart
-        if (_cMom) {
-            _cMom.data.labels.push(t);
-            _cMom.data.datasets[0].data.push(+(axes.x?.torque ?? d.moment_x ?? 0));
-            _cMom.data.datasets[1].data.push(+(axes.y?.torque ?? d.moment_y ?? 0));
-            _cMom.data.datasets[2].data.push(+(axes.z?.torque ?? d.moment_z ?? 0));
-        }
-
-        // Current chart
-        if (_cCur) {
-            _cCur.data.labels.push(t);
-            _cCur.data.datasets[0].data.push(+(d.current?.rms ?? d.load ?? 0));
-        }
-    });
-
-    charts.forEach(c => c.update());
-}
-
+// Các hàm render khác giữ nguyên...
 function _renderSensorSummary(data) {
     if (!data.length) return;
     const last = data[data.length - 1];
@@ -165,7 +284,7 @@ function _renderSensorTable(data) {
 
 window.fetchSensor = fetchSensor;
 
-// ══ ALARM ══
+// ══ ALARM ══ (giữ nguyên)
 async function fetchAlarms() {
     const level = document.getElementById('alarmLevel')?.value || '';
     const resolved = document.getElementById('alarmResolved')?.value;
@@ -220,7 +339,7 @@ async function resolveAlarm(id, btn) {
 window.fetchAlarms = fetchAlarms;
 window.resolveAlarm = resolveAlarm;
 
-// ══ G-CODE ══
+// ══ G-CODE ══ (giữ nguyên)
 async function fetchGcode() {
     const source = document.getElementById('gcodeSource')?.value || '';
     const status = document.getElementById('gcodeStatus')?.value || '';
@@ -287,7 +406,7 @@ window.downloadGcode = downloadGcode;
 window.confirmGcode = confirmGcode;
 window.rejectGcode = rejectGcode;
 
-// ══ CHAT ══
+// ══ CHAT ══ (giữ nguyên)
 let _chatTimer;
 function debounceChat() { clearTimeout(_chatTimer); _chatTimer = setTimeout(fetchChat, 500); }
 
