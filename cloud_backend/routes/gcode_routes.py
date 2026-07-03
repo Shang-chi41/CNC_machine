@@ -9,17 +9,19 @@ Flow AI G-code (theo log.md):
     → POST /api/gcode/{id}/confirm → status=confirmed → Edge gửi FluidNC
 
 Endpoints:
-    GET  /api/gcode/history            → lịch sử G-code (History page)
-    GET  /api/gcode/latest             → G-code mới nhất
-    GET  /api/gcode/{id}               → chi tiết 1 G-code
-    POST /api/gcode/upload             → upload G-code thủ công
-    POST /api/gcode/{id}/confirm       → operator xác nhận thực thi
-    POST /api/gcode/{id}/reject        → operator từ chối
-    GET  /api/gcode/{id}/download      → download file .nc
+    GET  /api/gcode/history                → lịch sử G-code (History page)
+    GET  /api/gcode/latest                 → G-code mới nhất
+    GET  /api/gcode/{id}                   → chi tiết 1 G-code (có checksum)
+    POST /api/gcode/upload                 → upload G-code thủ công
+    POST /api/gcode/{id}/confirm           → operator xác nhận thực thi
+    POST /api/gcode/{id}/reject            → operator từ chối
+    GET  /api/gcode/{id}/download          → download file .nc
+    POST /api/gcode/{id}/verify_checksum   → kiểm tra G-code có bị sửa đổi không
 """
 
 from __future__ import annotations
 
+import hashlib
 import re
 from datetime import datetime, timedelta, timezone
 
@@ -39,6 +41,15 @@ _COL_GCODE = "GCode_Files"
 
 def _now_str() -> str:
     return datetime.now(_VN_TZ).isoformat()
+
+
+def _calc_checksum(content: str) -> str:
+    """Tính SHA-256 checksum của nội dung G-code.
+
+    Dùng SHA-256 để khớp với SubtleCrypto trên frontend (MD5 không khả dụng
+    trong Web Crypto API).
+    """
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
 def _parse_gcode_meta(content: str) -> dict:
@@ -151,6 +162,7 @@ async def upload_gcode(
     result = get_col(_COL_GCODE).insert_one({
         "filename":    file.filename,
         "content":     content,
+        "checksum":    _calc_checksum(content),   # ← integrity checksum
         "description": description,
         "material":    material,
         "tool":        tool,
@@ -197,6 +209,7 @@ def save_gcode(body: SaveGcodeRequest, user: OperatorUser) -> dict:
 
     result = get_col(_COL_GCODE).insert_one({
         "content":     body.content,
+        "checksum":    _calc_checksum(body.content),   # ← integrity checksum
         "filename":    body.filename or f"gcode_{now[:10]}.nc",
         "description": body.description,
         "material":    body.material,
@@ -282,6 +295,61 @@ def reject_gcode(
     if result.modified_count == 0:
         raise HTTPException(status_code=404, detail="Không tìm thấy G-code")
     return {"status": "ok", "gcode_id": gcode_id, "new_status": "rejected"}
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#  VERIFY CHECKSUM  (Integrity check — phát hiện G-code bị sửa sau approved)
+# ══════════════════════════════════════════════════════════════════════════
+
+class VerifyChecksumRequest(BaseModel):
+    content: str   # nội dung G-code hiện tại từ frontend
+
+
+@router.post("/{gcode_id}/verify_checksum",
+             summary="Kiểm tra G-code có bị sửa đổi không")
+def verify_checksum(
+    gcode_id: str,
+    body: VerifyChecksumRequest,
+    user: CurrentUser,
+) -> dict:
+    """So sánh SHA-256 checksum của nội dung frontend với checksum đã lưu.
+
+    Frontend gọi endpoint này khi:
+    - Operator bấm Confirm / Run (lần verify cuối trước khi chạy máy).
+    - MutationObserver phát hiện nội dung ``gcodePreview`` thay đổi (real-time).
+
+    Returns::
+
+        { "match": true }
+            — nội dung nguyên vẹn, cho phép Confirm/Run.
+        { "match": false, "current_checksum": "...", "stored_checksum": "..." }
+            — đã bị sửa đổi, cần re-validate trước khi tiếp tục.
+
+    Raises:
+        404: gcode_id không tồn tại hoặc G-code chưa có checksum.
+    """
+    col = get_col(_COL_GCODE)
+    try:
+        doc = col.find_one({"_id": ObjectId(gcode_id)}, {"checksum": 1})
+    except Exception:
+        raise HTTPException(status_code=400, detail="gcode_id không hợp lệ")
+
+    if not doc:
+        raise HTTPException(status_code=404, detail="Không tìm thấy G-code")
+
+    stored = doc.get("checksum", "")
+    if not stored:
+        raise HTTPException(
+            status_code=404,
+            detail="G-code chưa có checksum — cần validate lại để tạo checksum mới",
+        )
+
+    current = _calc_checksum(body.content)
+    return {
+        "match":            current == stored,
+        "current_checksum": current,
+        "stored_checksum":  stored,
+    }
 
 
 # ══════════════════════════════════════════════════════════════════════════
