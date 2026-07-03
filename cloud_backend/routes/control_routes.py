@@ -17,6 +17,7 @@ Endpoints:
     POST /api/control/stop            → feed hold
     POST /api/control/resume          → tiếp tục sau hold
     POST /api/control/home            → về home
+    POST /api/control/unlock          → unlock sau alarm ($X)
     POST /api/control/jog             → jog một trục
     POST /api/control/gcode           → gửi 1 dòng G-code
     POST /api/control/run/{gcode_id}  → chạy G-code đã confirmed
@@ -192,6 +193,21 @@ def home(user: OperatorUser) -> dict:
     """Gửi lệnh homing về gốc tọa độ."""
     cmd_id = _push_command("home", {}, user["username"], priority=3)
     return {"status": "ok", "command_id": cmd_id, "message": "🏠 Lệnh Home đã được gửi"}
+
+
+@router.post("/unlock", summary="Unlock sau alarm ($X)")
+def unlock(user: OperatorUser) -> dict:
+    """Gửi lệnh unlock ($X) để thoát khỏi trạng thái alarm của FluidNC.
+
+    Dùng khi máy bị kẹt ở trạng thái ALARM sau sự cố.
+    Edge Backend nhận lệnh từ Machine_Commands và gửi ``$X`` qua telnet.
+
+    .. warning::
+        Chỉ dùng sau khi đã kiểm tra và xử lý nguyên nhân alarm.
+        Không dùng thay thế cho ESTOP.
+    """
+    cmd_id = _push_command("unlock", {}, user["username"], priority=2)
+    return {"status": "ok", "command_id": cmd_id, "message": "🔓 Unlock đã được gửi"}
 
 
 # ══════════════════════════════════════════════════════════════════════════
