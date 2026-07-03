@@ -315,11 +315,36 @@ body { flex-direction:column; overflow:hidden; height:100vh; }
     padding:8px;
     font-family:monospace;
     font-size:10px;
-    max-height:100px;
+    max-height:120px;
+    min-height:40px;
     overflow:auto;
     white-space:pre-wrap;
     color:var(--text-secondary);
     border:1px solid var(--gray-border);
+    outline:none;
+    cursor:text;
+    transition:border-color .2s, box-shadow .2s;
+    line-height:1.5;
+}
+
+/* Khi đang focus/edit */
+.gcode-preview:focus {
+    border-color:var(--cyan-portal);
+    box-shadow:0 0 0 2px rgba(0,170,255,0.15);
+    color:var(--text-primary);
+}
+
+/* Placeholder khi chưa có G-code */
+.gcode-preview:empty::before {
+    content: attr(data-placeholder);
+    color:var(--text-muted);
+    pointer-events:none;
+}
+
+/* Khi đã bị sửa — border vàng */
+.gcode-preview.is-modified {
+    border-color:var(--status-warning);
+    box-shadow:0 0 0 2px rgba(243,156,18,0.15);
 }
 
 /* ═══════════════════════════════════════════════════════════
