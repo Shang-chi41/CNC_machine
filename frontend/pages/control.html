@@ -215,6 +215,33 @@
                 <!-- AI GENERATED G-CODE -->
                 <div class="card">
                     <div class="card-title">AI GENERATED G-CODE</div>
+                    <!-- G-CODE MODIFIED WARNING BANNER -->
+                    <div id="gcodeModifiedBanner"
+                         style="display:none;
+                                background:var(--status-warning);
+                                color:#000;
+                                padding:8px 12px;
+                                border-radius:4px;
+                                margin-bottom:8px;
+                                font-size:11px;
+                                font-weight:bold;
+                                border-left:4px solid #f39c12;
+                                align-items:center;
+                                justify-content:space-between;
+                                gap:8px;">
+                        <span>⚠️ G-code đã bị chỉnh sửa — cần kiểm tra lại trước khi chạy</span>
+                        <button onclick="revalidateModifiedGcode()"
+                                style="padding:4px 10px;
+                                       font-size:10px;
+                                       font-family:'Orbitron',monospace;
+                                       background:var(--gray-sidebar);
+                                       border:1px solid var(--gray-border);
+                                       border-radius:3px;
+                                       cursor:pointer;
+                                       white-space:nowrap;">
+                            🔍 Kiểm tra lại
+                        </button>
+                    </div>
                     <div id="gcodePreview" class="gcode-preview">⏳ Chưa có G-Code</div>
                     <div style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap;">
                         <button id="downloadBtn" class="btn btn-success" onclick="downloadGCode()" disabled>💾 PREVIEW &amp; CODE</button>
