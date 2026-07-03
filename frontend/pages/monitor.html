@@ -108,7 +108,7 @@
             <!-- CỘT GIỮA: Axis + Machine Info (30%) -->
             <div class="mon-data-col">
 
-                <!-- AXIS (MPos) panel -->
+                <!-- AXIS (MPos) panel — chỉ hiển thị vị trí -->
                 <div class="mon-panel">
                     <div class="mon-panel-title">AXIS (MPos)</div>
                     <div class="mon-axis-list">
@@ -118,32 +118,58 @@
                             <span class="mon-ax-unit">mm</span>
                         </div>
                         <div class="mon-axis-row">
-                            <span class="mon-ax-sub-row">
-                                <span class="mon-ax-sublbl">Vel</span><span class="mon-ax-subval" id="velX">---</span>mm/s
-                                <span class="mon-ax-sublbl" style="margin-left:6px;">Mom</span><span class="mon-ax-subval" id="momX">---</span>N·m
-                            </span>
-                        </div>
-                        <div class="mon-axis-row">
                             <span class="mon-ax-lbl y">Y</span>
                             <span class="mon-ax-val" id="posY">---</span>
                             <span class="mon-ax-unit">mm</span>
                         </div>
-                        <div class="mon-axis-row">
-                            <span class="mon-ax-sub-row">
-                                <span class="mon-ax-sublbl">Vel</span><span class="mon-ax-subval" id="velY">---</span>mm/s
-                                <span class="mon-ax-sublbl" style="margin-left:6px;">Mom</span><span class="mon-ax-subval" id="momY">---</span>N·m
-                            </span>
-                        </div>
-                        <div class="mon-axis-row">
+                        <div class="mon-axis-row" style="border-bottom:none;">
                             <span class="mon-ax-lbl z">Z</span>
                             <span class="mon-ax-val" id="posZ">---</span>
                             <span class="mon-ax-unit">mm</span>
                         </div>
+                    </div>
+                </div>
+
+                <!-- VELOCITY panel — tách riêng -->
+                <div class="mon-panel">
+                    <div class="mon-panel-title">VELOCITY</div>
+                    <div class="mon-axis-list">
+                        <div class="mon-axis-row">
+                            <span class="mon-ax-lbl x">X</span>
+                            <span class="mon-ax-val mon-ax-val--sm" id="velX">---</span>
+                            <span class="mon-ax-unit">mm/s</span>
+                        </div>
+                        <div class="mon-axis-row">
+                            <span class="mon-ax-lbl y">Y</span>
+                            <span class="mon-ax-val mon-ax-val--sm" id="velY">---</span>
+                            <span class="mon-ax-unit">mm/s</span>
+                        </div>
                         <div class="mon-axis-row" style="border-bottom:none;">
-                            <span class="mon-ax-sub-row">
-                                <span class="mon-ax-sublbl">Vel</span><span class="mon-ax-subval" id="velZ">---</span>mm/s
-                                <span class="mon-ax-sublbl" style="margin-left:6px;">Mom</span><span class="mon-ax-subval" id="momZ">---</span>N·m
-                            </span>
+                            <span class="mon-ax-lbl z">Z</span>
+                            <span class="mon-ax-val mon-ax-val--sm" id="velZ">---</span>
+                            <span class="mon-ax-unit">mm/s</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MOMENT panel — tách riêng -->
+                <div class="mon-panel">
+                    <div class="mon-panel-title">MOMENT (TORQUE)</div>
+                    <div class="mon-axis-list">
+                        <div class="mon-axis-row">
+                            <span class="mon-ax-lbl x">X</span>
+                            <span class="mon-ax-val mon-ax-val--sm" id="momX">---</span>
+                            <span class="mon-ax-unit">N·m</span>
+                        </div>
+                        <div class="mon-axis-row">
+                            <span class="mon-ax-lbl y">Y</span>
+                            <span class="mon-ax-val mon-ax-val--sm" id="momY">---</span>
+                            <span class="mon-ax-unit">N·m</span>
+                        </div>
+                        <div class="mon-axis-row" style="border-bottom:none;">
+                            <span class="mon-ax-lbl z">Z</span>
+                            <span class="mon-ax-val mon-ax-val--sm" id="momZ">---</span>
+                            <span class="mon-ax-unit">N·m</span>
                         </div>
                     </div>
                 </div>
