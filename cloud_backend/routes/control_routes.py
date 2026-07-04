@@ -136,7 +136,7 @@ def machine_status(user: CurrentUser) -> dict:
 
 @router.post("/estop", summary="DỪNG KHẨN CẤP")
 def emergency_stop(user: OperatorUser) -> dict:
-    """Dừng khẩn cấp toàn bộ máy (M112).
+    """Dừng khẩn cấp: Feed Hold (!) rồi Ctrl+X (soft reset).
 
     Ghi lệnh estop vào MongoDB với priority=1.
     Edge Backend poll và thực thi ngay lập tức qua telnet → FluidNC.
@@ -303,10 +303,15 @@ def run_gcode(gcode_id: str, user: OperatorUser) -> dict:
         priority = 4,
     )
 
-    # Đánh dấu đang chạy
+    # Chỉ đánh dấu queued tại Cloud. Trạng thái executing được đặt khi Edge
+    # thực sự claim command, tránh báo đang chạy khi Edge đang offline.
     col.update_one(
         {"_id": ObjectId(gcode_id)},
-        {"$set": {"status": "executing", "started_at": _now_str()}},
+        {"$set": {
+            "status": "queued",
+            "queued_at": _now_str(),
+            "execution_command_id": cmd_id,
+        }},
     )
 
     return {
@@ -330,7 +335,7 @@ def stream_progress(user: CurrentUser) -> dict:
     """
     col = get_col(_COL_CMDS)
     cmd = col.find_one(
-        {"action": "run_gcode", "status": "executing"},
+        {"action": "run_gcode", "status": {"$in": ["processing", "executing"]}},
         sort=[("created_at", -1)],
     )
     if not cmd:
