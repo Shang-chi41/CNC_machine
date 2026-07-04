@@ -54,8 +54,8 @@ def _calc_checksum(content: str) -> str:
 
 def _parse_gcode_meta(content: str) -> dict:
     """Trích metadata từ nội dung G-code: số dòng, ước tính thời gian."""
-    lines      = [l.strip() for l in content.splitlines() if l.strip() and not l.strip().startswith(";")]
-    move_count = sum(1 for l in lines if re.match(r"^G[01]\b", l, re.I))
+    lines      = [line.strip() for line in content.splitlines() if line.strip() and not line.strip().startswith(";")]
+    move_count = sum(1 for line in lines if re.match(r"^G[01]\b", line, re.I))
     return {
         "line_count":       len(lines),
         "move_count":       move_count,
@@ -253,7 +253,7 @@ def confirm_gcode(gcode_id: str, user: OperatorUser) -> dict:
         raise HTTPException(status_code=404, detail="Không tìm thấy G-code")
 
     current_status = doc.get("status", "")
-    allowed_from = {"approved", "pending_confirmation", "pending_validation"}
+    allowed_from = {"approved", "pending_confirmation"}
     if current_status not in allowed_from:
         raise HTTPException(
             status_code=409,
