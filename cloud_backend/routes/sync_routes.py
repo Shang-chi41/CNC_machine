@@ -15,12 +15,12 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from bson import ObjectId
+from pymongo import ReturnDocument
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
 
-from cloud_backend.services.mongo_service import docs_to_list, get_col
-from cloud_backend.services.notification_service import notifier
+from cloud_backend.services.mongo_service import doc_to_dict, docs_to_list, get_col
 from cloud_backend.services.notification_service import notify_alarm
 
 router = APIRouter()
@@ -51,8 +51,29 @@ def _now_str() -> str:
 _COL_SENSOR   = "Sensor_Data"
 _COL_ALARMS   = "Alarms"
 _COL_SIM      = "Simulation_Data"
+_COL_GCODE    = "GCode_Files"
 _COL_CMDS     = "Machine_Commands"
 _COL_SETTINGS = "HMI_Settings"
+
+
+def _edge_target(col, edge_id: str, edge_field: str) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    """Resolve one logical Edge record in both shared-DB and split-DB deployments.
+
+    When Edge and Cloud point at the same MongoDB, the original ObjectId already
+    exists before the HTTP sync call.  Prefer that document to avoid duplicating
+    it.  In split deployments, fall back to the stable ``edge_*_id`` field.
+    """
+    target: dict[str, Any] = {edge_field: edge_id}
+    existing = col.find_one(target) if edge_id else None
+    if edge_id and existing is None:
+        try:
+            oid = ObjectId(edge_id)
+            existing = col.find_one({"_id": oid})
+            if existing is not None:
+                target = {"_id": oid}
+        except Exception:
+            pass
+    return target, existing
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -67,10 +88,21 @@ class SensorSyncRequest(BaseModel):
 def sync_sensors(body: SensorSyncRequest, _: str = SyncAuth) -> dict:
     if not body.records:
         return {"status": "ok", "inserted": 0}
-    now  = _now_str()
-    docs = [{**r, "synced_at": now} for r in body.records]
-    get_col(_COL_SENSOR).insert_many(docs, ordered=False)
-    return {"status": "ok", "inserted": len(docs)}
+    col = get_col(_COL_SENSOR)
+    now = _now_str()
+    count = 0
+    for record in body.records:
+        edge_id = str(record.get("edge_sensor_id") or record.get("_id") or "")
+        doc = {k: v for k, v in record.items() if k not in ("_id", "synced")}
+        doc.update({"edge_sensor_id": edge_id, "synced_at": now})
+        if edge_id:
+            target, existing = _edge_target(col, edge_id, "edge_sensor_id")
+            result = col.update_one(target, {"$set": doc}, upsert=True)
+            count += int(existing is None or result.modified_count > 0)
+        else:
+            col.insert_one(doc)
+            count += 1
+    return {"status": "ok", "upserted": count}
 
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -130,34 +162,26 @@ def sync_alarms(body: AlarmSyncRequest, _: str = SyncAuth) -> dict:
         doc     = {k: v for k, v in alarm.items() if k not in ("_id",)}
         doc["synced_at"] = now
 
-        # Lưu vào MongoDB (upsert để tránh duplicate khi Edge retry)
+        # Upsert chống duplicate cho cả mô hình DB dùng chung và DB tách riêng.
         if edge_id:
-            result = col.update_one(
-                {"edge_alarm_id": str(edge_id)},
-                {"$setOnInsert": doc},
-                upsert=True,
-            )
-            inserted = result.upserted_id is not None
+            edge_id = str(edge_id)
+            target, existing = _edge_target(col, edge_id, "edge_alarm_id")
+            should_notify = existing is None or not bool(existing.get("cloud_notified"))
+            doc.update({"edge_alarm_id": edge_id, "cloud_notified": True})
+            result = col.update_one(target, {"$set": doc}, upsert=True)
+            changed = existing is None or result.modified_count > 0
         else:
+            doc["cloud_notified"] = True
             col.insert_one(doc)
-            inserted = True
+            should_notify = True
+            changed = True
 
-        if inserted:
-            count += 1
-            # Gửi Telegram cho WARNING trở lên
-            level = alarm.get("level", "info").lower()
-            if level in ("warning", "critical", "emergency"):
-                _send_telegram_async(alarm)
+        count += int(changed)
+        # Chỉ gửi một lần cho mỗi alarm, kể cả khi Edge retry HTTP sync.
+        level = alarm.get("level", "info").lower()
+        if should_notify and level in ("warning", "critical", "emergency"):
+            _send_telegram_async(alarm)
 
-    # Gửi Telegram cho alarm warning trở lên (async fire-and-forget)
-    import asyncio
-    for alarm in body.alarms:
-        level = (alarm.get("level") or "info").lower()
-        if level in ("warning", "critical", "emergency"):
-            try:
-                asyncio.ensure_future(notifier.send_alarm(alarm))
-            except RuntimeError:
-                notifier.send_alarm_sync(alarm)
 
     return {"status": "ok", "upserted": count}
 
@@ -172,34 +196,140 @@ class SimSyncRequest(BaseModel):
 
 @router.post("/simulation", summary="Edge push simulation data")
 def sync_simulation(body: SimSyncRequest, _: str = SyncAuth) -> dict:
+    """Upsert simulation records theo ``edge_simulation_id`` để retry không tạo bản sao."""
     if not body.records:
-        return {"status": "ok", "inserted": 0}
-    now  = _now_str()
-    docs = [{**r, "synced_at": now} for r in body.records]
-    get_col(_COL_SIM).insert_many(docs, ordered=False)
-    return {"status": "ok", "inserted": len(docs)}
+        return {"status": "ok", "upserted": 0}
+    col = get_col(_COL_SIM)
+    now = _now_str()
+    count = 0
+    for record in body.records:
+        edge_id = str(record.get("edge_simulation_id") or record.get("_id") or "")
+        doc = {k: v for k, v in record.items() if k not in ("_id", "cloud_synced")}
+        doc.update({"edge_simulation_id": edge_id, "synced_at": now})
+        if edge_id:
+            target, existing = _edge_target(col, edge_id, "edge_simulation_id")
+            result = col.update_one(target, {"$set": doc}, upsert=True)
+            count += int(existing is None or result.modified_count > 0)
+        else:
+            col.insert_one(doc)
+            count += 1
+    return {"status": "ok", "upserted": count}
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#  G-CODE SYNC + EDGE FETCH
+# ══════════════════════════════════════════════════════════════════════════
+
+class GCodeSyncRequest(BaseModel):
+    records: list[dict[str, Any]]
+
+
+@router.post("/gcodes", summary="Edge upsert G-code lên Cloud")
+def sync_gcodes(body: GCodeSyncRequest, _: str = SyncAuth) -> dict:
+    """Đồng bộ GCode_Files từ Edge, dedup theo ``edge_gcode_id``."""
+    if not body.records:
+        return {"status": "ok", "upserted": 0}
+    col = get_col(_COL_GCODE)
+    now = _now_str()
+    count = 0
+    for record in body.records:
+        edge_id = str(record.get("edge_gcode_id") or record.get("_id") or "")
+        doc = {
+            k: v for k, v in record.items()
+            if k not in ("_id", "cloud_synced", "cloud_synced_at")
+        }
+        doc.update({"edge_gcode_id": edge_id, "synced_at": now})
+        if edge_id:
+            target, existing = _edge_target(col, edge_id, "edge_gcode_id")
+            result = col.update_one(target, {"$set": doc}, upsert=True)
+            count += int(existing is None or result.modified_count > 0)
+        else:
+            col.insert_one(doc)
+            count += 1
+    return {"status": "ok", "upserted": count}
+
+
+@router.get("/gcodes/{gcode_id}", summary="Edge lấy G-code Cloud để thực thi")
+def edge_get_gcode(gcode_id: str, _: str = SyncAuth) -> dict:
+    try:
+        doc = get_col(_COL_GCODE).find_one({"_id": ObjectId(gcode_id)})
+    except Exception:
+        raise HTTPException(status_code=400, detail="gcode_id không hợp lệ")
+    if not doc:
+        raise HTTPException(status_code=404, detail="Không tìm thấy G-code")
+    return doc_to_dict(doc) or {}
 
 
 # ══════════════════════════════════════════════════════════════════════════
 #  COMMAND POLL + DONE
 # ══════════════════════════════════════════════════════════════════════════
 
-@router.get("/commands", summary="Edge poll lệnh điều khiển pending")
+@router.get("/commands", summary="Edge poll và claim lệnh pending")
 def poll_commands(_: str = SyncAuth) -> list[dict]:
-    col  = get_col(_COL_CMDS)
-    docs = list(
-        col.find({"status": "pending"})
-           .sort([("priority", 1), ("created_at", 1)])
-           .limit(10)
-    )
-    if not docs:
-        return []
-    ids = [d["_id"] for d in docs]
+    """Claim tối đa 10 lệnh theo priority, đồng thời phục hồi job bị treo."""
+    col = get_col(_COL_CMDS)
+    now = datetime.now(_VN_TZ)
+    cutoff = (now - timedelta(minutes=5)).isoformat()
+
+    # Edge chết giữa chừng: đưa command processing quá 5 phút về pending.
     col.update_many(
-        {"_id": {"$in": ids}},
-        {"$set": {"status": "processing", "fetched_at": _now_str()}},
+        {
+            "status": "processing",
+            "action": {"$ne": "run_gcode"},
+            "$or": [
+                {"processing_started_at": {"$lt": cutoff}},
+                {"processing_started_at": {"$exists": False}},
+            ],
+        },
+        {"$set": {"status": "pending", "recovered_at": now.isoformat()}},
     )
-    return docs_to_list(docs)
+
+
+    # Không tự retry chương trình cắt sau Edge crash vì có thể gây chạy lặp.
+    run_cutoff = (now - timedelta(hours=1)).isoformat()
+    col.update_many(
+        {
+            "status": "processing",
+            "action": "run_gcode",
+            "processing_started_at": {"$lt": run_cutoff},
+        },
+        {"$set": {
+            "status": "failed",
+            "error": "Edge mất kết nối trong khi stream; cần operator kiểm tra máy",
+            "executed_at": now.isoformat(),
+        }},
+    )
+
+    claimed: list[dict] = []
+    for _ in range(10):
+        doc = col.find_one_and_update(
+            {"status": "pending"},
+            {"$set": {
+                "status": "processing",
+                "fetched_at": now.isoformat(),
+                "processing_started_at": now.isoformat(),
+            }},
+            sort=[("priority", 1), ("created_at", 1)],
+            return_document=ReturnDocument.AFTER,
+        )
+        if not doc:
+            break
+        if doc.get("action") == "run_gcode":
+            gcode_id = str((doc.get("params") or {}).get("gcode_id", ""))
+            if gcode_id:
+                try:
+                    get_col(_COL_GCODE).update_one(
+                        {"_id": ObjectId(gcode_id)},
+                        {"$set": {
+                            "status": "executing",
+                            "started_at": now.isoformat(),
+                            "execution_command_id": str(doc.get("_id", "")),
+                        }},
+                    )
+                except Exception:
+                    pass
+        claimed.append(doc)
+    return docs_to_list(claimed)
 
 
 class CommandResultRequest(BaseModel):
@@ -216,33 +346,49 @@ def command_done(
 ) -> dict:
     col = get_col(_COL_CMDS)
     try:
-        result = col.update_one(
-            {"_id": ObjectId(command_id)},
+        oid = ObjectId(command_id)
+        cmd_doc = col.find_one({"_id": oid})
+        if not cmd_doc:
+            raise HTTPException(status_code=404, detail="Không tìm thấy command")
+        col.update_one(
+            {"_id": oid},
             {"$set": {
-                "status":      "done" if body.success else "failed",
-                "result":      body.result,
-                "error":       body.error,
+                "status": "done" if body.success else "failed",
+                "result": body.result,
+                "error": body.error,
                 "executed_at": _now_str(),
             }},
         )
+    except HTTPException:
+        raise
     except Exception:
         raise HTTPException(status_code=400, detail="command_id không hợp lệ")
 
-    if result.modified_count == 0:
-        raise HTTPException(status_code=404, detail="Không tìm thấy command")
+    # Kết thúc run_gcode thì đồng bộ luôn vòng đời GCode_Files trên Cloud.
+    if cmd_doc.get("action") == "run_gcode":
+        gcode_id = str((cmd_doc.get("params") or {}).get("gcode_id", ""))
+        if gcode_id:
+            try:
+                get_col(_COL_GCODE).update_one(
+                    {"_id": ObjectId(gcode_id)},
+                    {"$set": {
+                        "status": "executed" if body.success else "failed",
+                        "completed_at": _now_str(),
+                        "execution_error": body.error,
+                    }},
+                )
+            except Exception:
+                pass
 
-    # Nếu estop thành công → thông báo Telegram
-    if body.success:
-        cmd_doc = col.find_one({"_id": ObjectId(command_id)})
-        if cmd_doc and cmd_doc.get("action") == "estop":
-            threading.Thread(
-                target=lambda: notify_alarm(
-                    level   = "emergency",
-                    message = "Máy đã dừng khẩn cấp thành công",
-                    action  = "estop_confirmed",
-                ),
-                daemon=True,
-            ).start()
+    if body.success and cmd_doc.get("action") == "estop":
+        threading.Thread(
+            target=lambda: notify_alarm(
+                level="emergency",
+                message="Máy đã dừng khẩn cấp thành công",
+                action="estop_confirmed",
+            ),
+            daemon=True,
+        ).start()
 
     return {"status": "ok", "command_id": command_id}
 
@@ -316,7 +462,7 @@ def update_provider_status(body: ProviderStatusRequest, _: str = SyncAuth) -> di
         threading.Thread(
             target=lambda: notify_alarm(
                 level   = "warning",
-                message = f"AI provider rơi xuống emergency tier (rule-based)",
+                message = "AI provider rơi xuống emergency tier (rule-based)",
                 action  = f"Đang dùng: {body.provider}",
             ),
             daemon=True,
