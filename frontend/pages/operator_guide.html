@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hướng Dẫn HMI - CNC Smart System</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800&family=Be+Vietnam+Pro:wght@300;400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/isa101.css">
+<link rel="stylesheet" href="/static/css/ai.css">
+<link rel="stylesheet" href="/static/css/hmi_redesign_v2.css">
+<link rel="stylesheet" href="/static/css/hmi_compact_v3.css">
+<link rel="stylesheet" href="/static/css/hmi_accessible_v4.css">
+</head>
+<body>
+<header class="header">
+    <div class="logo-bk">
+        <img src="/static/images/hust_logo.png" alt="HUST" onerror="this.src='https://via.placeholder.com/55x55?text=HUST'">
+        <div class="logo-bk-text">ĐH Bách Khoa<br>Hà Nội</div>
+    </div>
+    <div class="header-center">
+        <div class="main-title">TÍNH TOÁN, THIẾT KẾ HỆ THỐNG ĐIỀU KHIỂN MÁY CNC ĐỂ BÀN TỰ CHỦ THÔNG MINH</div>
+        <div class="sub-title">Operator Guide — Sync Epoch · Control Selector · ISA-101 HMI</div>
+    </div>
+    <img src="/static/images/vimes_logo.png" alt="Vimes" style="height:55px;width:auto;" onerror="this.src='https://via.placeholder.com/55x55?text=V'">
+</header>
+<div class="app-shell">
+<aside class="sidebar">
+    <nav class="sidebar-nav">
+        <a class="nav-item" href="/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 12L12 3l9 9"/><path d="M9 21V12h6v9"/></svg><span class="nav-label">Home</span></a>
+        <a class="nav-item" href="/monitor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><polyline points="6,14 9,9 12,12 15,7 18,10"/></svg><span class="nav-label">Giám Sát</span></a>
+        <a class="nav-item" href="/control"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="4" width="20" height="16" rx="2"/><circle cx="9" cy="12" r="3"/><path d="M14 9h4M14 12h3M14 15h2"/></svg><span class="nav-label">Điều Khiển</span></a>
+        <a class="nav-item" href="/history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18M8 14h4M8 18h6"/></svg><span class="nav-label">Lịch Sử</span></a>
+        <a class="nav-item" href="/cnc3d"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 2l8 4v8l-8 4-8-4V6z"/><path d="M12 10l8-4M12 10L4 6M12 10v8"/></svg><span class="nav-label">3D Twin</span></a>
+        <a class="nav-item active" href="/guide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 4v15.5"/><path d="M6.5 2H20v15H6.5A2.5 2.5 0 0 0 4 19.5V4A2 2 0 0 1 6 2z"/></svg><span class="nav-label">Hướng Dẫn</span></a>
+        <a class="nav-item" href="/settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg><span class="nav-label">Thông Số</span></a>
+    </nav>
+    <div class="sidebar-status"><div class="sdot-row"><div class="sdot idle"></div><span>Offline</span></div><div class="sdot-row"><div class="sdot idle"></div><span>No alarm</span></div></div>
+</aside>
+<main class="main-area">
+    <div class="guide-page">
+        <section class="guide-hero">
+            <h1 class="guide-title">Hướng dẫn vận hành HMI CNC Digital Twin</h1>
+            <p class="guide-subtitle">Trang này dành cho người dùng đa trình độ. Mục tiêu là giúp người vận hành biết cần nhìn gì trước, khi nào được chạy máy thật, và khi nào 3D Twin chỉ là mô phỏng kiểm tra.</p>
+            <div class="guide-actions">
+                <a href="/monitor">Mở Giám Sát</a>
+                <a href="/control">Mở Điều Khiển</a>
+                <a class="secondary" href="/cnc3d">Mở 3D Twin</a>
+            </div>
+        </section>
+        <section class="guide-grid">
+            <article class="guide-card">
+                <h2>1. Quy trình an toàn trước khi RUN</h2>
+                <ol>
+                    <li>Nhấn hoặc thực hiện <strong>Home &amp; Sync</strong>.</li>
+                    <li>Chờ <strong>SYNC = MACHINE_NX_SYNCED</strong>.</li>
+                    <li>Chạy <strong>G-code CHECK</strong> bằng MATLAB/NX MCD.</li>
+                    <li>Đảm bảo CHECK không bị <strong>STALE</strong> và cùng <strong>sync_epoch</strong> hiện tại.</li>
+                    <li>Chỉ RUN khi <strong>RUN PERMISSION = READY</strong>.</li>
+                </ol>
+            </article>
+            <article class="guide-card">
+                <h2>2. Ý nghĩa các trạng thái chính</h2>
+                <ul>
+                    <li><strong>SYNC CONTRACT</strong>: máy thật và NX MCD có cùng gốc tọa độ hay chưa.</li>
+                    <li><strong>CONTROL OWNER</strong>: nguồn đang được phép điều khiển pose hiển thị.</li>
+                    <li><strong>SYNC EPOCH</strong>: mã phiên đồng bộ. Đổi epoch thì kết quả check cũ không còn hợp lệ.</li>
+                    <li><strong>RUN GATE</strong>: khóa/mở lệnh chạy thật.</li>
+                </ul>
+            </article>
+            <article class="guide-card">
+                <h2>3. Phân biệt nguồn chuyển động 3D</h2>
+                <ul>
+                    <li><strong>stream_fluidnc</strong>: máy thật đang chạy hoặc đang gửi MPos realtime.</li>
+                    <li><strong>idle_fluidnc</strong>: máy thật idle/jog, frontend chỉ mirror vị trí.</li>
+                    <li><strong>matlab_check</strong>: quỹ đạo kiểm tra, không phải chuyển động máy thật.</li>
+                    <li><strong>home_sync</strong>: đang đưa NX MCD về pose đồng bộ home.</li>
+                </ul>
+                <div class="guide-callout">3D Twin là lớp hiển thị read-only. Không dùng nó để phát lệnh điều khiển trực tiếp.</div>
+            </article>
+            <article class="guide-card">
+                <h2>4. Khi nào không được chạy?</h2>
+                <ul>
+                    <li>FluidNC chưa Idle hoặc đang Alarm.</li>
+                    <li>NX MCD chưa xác nhận pose ban đầu.</li>
+                    <li>G-code CHECK fail hoặc stale.</li>
+                    <li>Người vận hành jog máy sau khi check nhưng chưa check lại.</li>
+                    <li>Work offset / home / axis mapping thay đổi.</li>
+                </ul>
+            </article>
+            <article class="guide-card">
+                <h2>5. Màu sắc theo ISA-101</h2>
+                <ul>
+                    <li>Màu xám: trạng thái bình thường / nền vận hành.</li>
+                    <li>Màu xanh: trạng thái kết nối hoặc hành động đã sẵn sàng.</li>
+                    <li>Màu vàng: cảnh báo, cần chú ý.</li>
+                    <li>Màu đỏ: alarm, collision, estop hoặc trạng thái không an toàn.</li>
+                </ul>
+            </article>
+            <article class="guide-card">
+                <h2>6. Dùng Ctrl+ / Ctrl-</h2>
+                <p>Giao diện V4 dùng cỡ chữ tối thiểu và layout tự wrap. Khi phóng to trình duyệt, các khối chính sẽ xuống dòng thay vì ép chữ nhỏ. Nếu màn hình hẹp, AI Assistant sẽ tự ẩn để ưu tiên vùng vận hành.</p>
+            </article>
+        </section>
+    </div>
+</main>
+</div>
+</body>
+</html>
