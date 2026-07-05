@@ -1,0 +1,282 @@
+/* =========================================================
+   HMI COMPACT V3 — visible compactness layer
+   Purpose:
+   - Keep Sync Epoch / Control Selector visible without consuming the whole screen.
+   - Preserve ISA-101 quiet normal state: grey first, color only for state/exception.
+   - Keep 3D Twin read-only and leave more room for process data.
+   ========================================================= */
+
+:root {
+    --hmi-compact-gap: 6px;
+    --hmi-compact-pad: 6px;
+    --hmi-compact-row: 36px;
+}
+
+/* Chrome density */
+.header {
+    height: 52px !important;
+    padding: 0 12px !important;
+}
+.logo-bk { gap: 8px !important; }
+.logo-bk img,
+.header > img { height: 34px !important; }
+.logo-bk-text { font-size: 7.5px !important; line-height: 1.15 !important; }
+.header-center .main-title {
+    font-size: 10px !important;
+    line-height: 1.25 !important;
+    letter-spacing: .25px !important;
+}
+.header-center .sub-title { font-size: 8.5px !important; margin-top: 1px !important; }
+.sidebar { width: 86px !important; }
+.nav-item { padding: 8px 4px !important; gap: 3px !important; }
+.nav-item svg { width: 18px !important; height: 18px !important; }
+.nav-label { font-size: 7.2px !important; letter-spacing: .45px !important; }
+.sidebar-status { padding: 6px 5px !important; gap: 4px !important; }
+.sdot-row { font-size: 7.5px !important; gap: 4px !important; }
+.ai-panel { width: 190px !important; }
+.ai-header { padding: 7px 9px !important; }
+.ai-header-title { font-size: 8.5px !important; letter-spacing: 1px !important; }
+.ai-msgs { padding: 6px !important; gap: 5px !important; }
+.ai-msg { font-size: 10px !important; line-height: 1.35 !important; padding: 6px 7px !important; }
+
+/* Global sync strip: one dense line, not a dashboard inside a dashboard */
+.hmi-command-banner,
+.hmi-command-banner.compact {
+    grid-template-columns: 1fr .82fr .75fr .75fr 1fr !important;
+    gap: var(--hmi-compact-gap) !important;
+    padding: 6px !important;
+    margin: 6px 8px !important;
+    border-radius: 6px !important;
+}
+.hmi-tile {
+    min-height: 38px !important;
+    padding: 5px 7px !important;
+    gap: 1px !important;
+    border-radius: 4px !important;
+}
+.hmi-tile-label {
+    font-size: 7.5px !important;
+    letter-spacing: .55px !important;
+}
+.hmi-tile-value { font-size: 12px !important; }
+.hmi-tile-value.sm { font-size: 10.5px !important; }
+
+/* Home compact cockpit */
+.hmi-l1-compact {
+    display: grid;
+    grid-template-columns: 230px minmax(420px, 1fr) 240px;
+    gap: var(--hmi-compact-gap);
+    margin: 0 8px 6px;
+}
+.hmi-compact-card {
+    background: var(--hmi-panel);
+    border: 1px solid var(--hmi-line);
+    border-radius: 6px;
+    box-shadow: 0 1px 0 rgba(255,255,255,.45) inset;
+    overflow: hidden;
+    min-height: 88px;
+}
+.hmi-compact-head {
+    height: 24px;
+    padding: 0 8px;
+    border-bottom: 1px solid rgba(0,0,0,.12);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: .7px;
+    color: var(--hmi-blue);
+    text-transform: uppercase;
+    background: rgba(29,93,159,.06);
+}
+.hmi-compact-body { padding: 7px 8px; }
+.hmi-readiness-score.compact {
+    display: grid;
+    grid-template-columns: 54px 1fr;
+    gap: 8px;
+    align-items: center;
+}
+.hmi-readiness-score.compact .hmi-score-ring {
+    width: 50px;
+    height: 50px;
+    border-width: 5px;
+    font-size: 12px;
+}
+.hmi-readiness-score.compact .hmi-score-detail { gap: 4px; }
+.hmi-readiness-score.compact .hmi-mini-line {
+    font-size: 9px;
+    padding-bottom: 3px;
+}
+.hmi-mini-workflow {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(72px, 1fr));
+    gap: 4px;
+}
+.hmi-mini-workflow .hmi-step {
+    min-height: 56px;
+    padding: 5px;
+    border-radius: 4px;
+}
+.hmi-mini-workflow .hmi-step-title { font-size: 8.5px; line-height: 1.15; }
+.hmi-mini-workflow .hmi-step-state { font-size: 8px; }
+.hmi-mini-workflow .hmi-step::before { font-size: 8.5px; }
+.hmi-guide-drawer {
+    background: rgba(255,255,255,.16);
+    border: 1px solid rgba(0,0,0,.12);
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-size: 9.5px;
+    color: var(--hmi-muted);
+}
+.hmi-guide-drawer summary {
+    cursor: pointer;
+    color: var(--hmi-blue);
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .45px;
+}
+.hmi-guide-drawer ol { margin: 6px 0 0 16px; line-height: 1.45; }
+.hmi-guide-drawer li { margin: 2px 0; }
+.hmi-inline-doc {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--hmi-blue);
+    font-weight: 800;
+    text-decoration: none;
+    font-size: 8px;
+}
+.hmi-inline-doc:hover { text-decoration: underline; }
+
+/* Monitor: compact context strip instead of two big rows */
+.hmi-monitor-compact {
+    display: grid;
+    grid-template-columns: minmax(360px, 1.3fr) minmax(420px, 1.4fr) 92px;
+    gap: var(--hmi-compact-gap);
+    align-items: stretch;
+    padding: 6px 8px;
+    background: var(--hmi-panel);
+    border-bottom: 1px solid var(--hmi-line);
+    flex-shrink: 0;
+}
+.hmi-priority-banner.compact-v3 {
+    margin: 0 !important;
+    padding: 5px 8px !important;
+    min-height: 38px !important;
+    border-radius: 5px !important;
+}
+.hmi-priority-banner.compact-v3 .hmi-priority-main { font-size: 10.5px; }
+.hmi-priority-banner.compact-v3 .hmi-priority-meta { font-size: 8.5px; gap: 6px; }
+.hmi-context-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(68px, 1fr));
+    gap: 4px;
+}
+.hmi-context-chip {
+    border: 1px solid rgba(0,0,0,.12);
+    border-radius: 4px;
+    padding: 4px 6px;
+    background: rgba(255,255,255,.16);
+    min-height: 38px;
+}
+.hmi-context-chip span {
+    display: block;
+    font-size: 7.5px;
+    font-weight: 800;
+    letter-spacing: .55px;
+    color: var(--hmi-muted);
+    text-transform: uppercase;
+    margin-bottom: 2px;
+}
+.hmi-context-chip strong {
+    display: block;
+    font-family: 'Courier New', monospace;
+    font-size: 10.5px;
+    color: var(--hmi-ink);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.hmi-operator-help {
+    border: 1px solid rgba(0,0,0,.12);
+    border-radius: 4px;
+    background: rgba(255,255,255,.16);
+    color: var(--hmi-blue);
+    font-size: 8px;
+    font-weight: 800;
+    letter-spacing: .45px;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+}
+.hmi-operator-help:hover { background: rgba(29,93,159,.08); }
+
+/* Compact process panels */
+.panel-top-bar { padding: 4px 10px !important; gap: 10px !important; }
+.st-label { font-size: 13px !important; }
+.mon-kpis { gap: 14px !important; }
+.mon-kpi-val { font-size: 13px !important; }
+.mon-panel { margin: 5px !important; }
+.mon-panel-title { padding: 4px 8px !important; font-size: 7.5px !important; }
+.mon-twin-header { min-height: 34px !important; padding: 4px 8px !important; }
+.twin-source-ribbon, .twin-sync-footer { min-height: 22px !important; padding: 3px 8px !important; font-size: 8px !important; }
+
+/* Control gate: six checks in one line on desktop */
+.hmi-control-gate.compact-v3,
+.hmi-control-gate {
+    grid-template-columns: 180px minmax(520px, 1fr) 130px !important;
+    gap: 7px !important;
+    padding: 7px 8px !important;
+    margin: 6px 8px !important;
+    border-radius: 6px !important;
+}
+.hmi-control-gate-title strong { font-size: 14px !important; }
+.hmi-control-gate-title span { font-size: 8px !important; }
+.hmi-checklist { grid-template-columns: repeat(6, minmax(76px, 1fr)) !important; gap: 4px !important; }
+.hmi-check { min-height: 28px !important; padding: 4px 6px !important; font-size: 8.5px !important; }
+.hmi-run-permit { font-size: 12px !important; }
+.hmi-guide-inline {
+    margin: 0 8px 6px;
+    padding: 4px 8px;
+    border: 1px solid rgba(0,0,0,.12);
+    border-radius: 5px;
+    background: rgba(255,255,255,.14);
+    color: var(--hmi-muted);
+    font-size: 9px;
+    flex-shrink: 0;
+}
+.hmi-guide-inline summary {
+    cursor: pointer;
+    color: var(--hmi-blue);
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .45px;
+}
+.hmi-guide-inline p { margin-top: 5px; line-height: 1.4; }
+.mode-bar { padding: 5px 8px !important; gap: 7px !important; }
+.mode-btn { padding: 4px 12px !important; font-size: 8.5px !important; }
+.estop-fab { width: 58px !important; height: 58px !important; left: 100px !important; bottom: 64px !important; }
+
+/* Dashboard old panels shrink under compact Level-1 */
+.db-status-chip { padding: 5px 9px !important; }
+.db-chip-val { font-size: 14px !important; }
+.db-panel-title { padding: 4px 8px !important; font-size: 7.8px !important; }
+.db-panel { border-radius: 4px !important; }
+
+@media (max-width: 1320px) {
+    .hmi-l1-compact,
+    .hmi-monitor-compact,
+    .hmi-control-gate.compact-v3,
+    .hmi-control-gate {
+        grid-template-columns: 1fr !important;
+    }
+    .hmi-mini-workflow,
+    .hmi-context-grid,
+    .hmi-checklist {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+    .ai-panel { display: none !important; }
+}
