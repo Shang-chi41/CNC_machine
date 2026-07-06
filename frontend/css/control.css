@@ -1,0 +1,601 @@
+/* control.css
+ * Page-specific styles for control.html (Manual + Auto mode).
+ * Shared base styles (header, sidebar, ai-panel) live in isa101.css / ai.css.
+ * CSS variables are defined in isa101.css — do not redefine colors here.
+ */
+
+/* Status dot (dùng chung cho machDot & machDotL) */
+.ms-dot { width:8px; height:8px; border-radius:50%; background:var(--gray-border); flex-shrink:0; transition:var(--transition); }
+.ms-dot.idle { background:var(--gray-border); }
+.ms-dot.on   { background:var(--status-active); animation:pulse 1.5s infinite; }
+.ms-dot.warn { background:var(--status-warning); }
+.ms-dot.off  { background:var(--status-alarm); animation:pulse 0.8s infinite; }
+
+@keyframes pulse {
+    0%, 100% { opacity:1; }
+    50%      { opacity:0.4; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ESTOP BUTTON (cố định góc, hiển thị trên mọi trang)
+   ═══════════════════════════════════════════════════════════ */
+.estop-fab {
+    position:fixed; right:calc(var(--hmi-ai-width, 260px) + 20px); bottom:20px; z-index:9999;
+    width:64px; height:64px; border-radius:50%;
+    background:var(--status-alarm); color:white;
+    border:3px solid #ffffff; box-shadow:0 4px 20px rgba(204,0,0,0.5);
+    font-family:'Orbitron',monospace; font-size:var(--hmi-font-label); font-weight:800;
+    letter-spacing:0.5px; cursor:pointer; transition:var(--transition);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+    text-align:center;
+}
+.estop-fab:hover { transform:scale(1.08); box-shadow:0 6px 28px rgba(204,0,0,0.7); }
+.estop-fab:active { transform:scale(0.95); }
+.estop-fab .estop-icon { font-size:20px; line-height:1; }
+
+/* ═══════════════════════════════════════════════════════════
+   MODE CONTENT SWITCHER
+   ═══════════════════════════════════════════════════════════ */
+.mode-content { flex:1; min-height:0; overflow:visible; display:none; }
+.mode-content.active { display:flex; }
+
+/* ═══════════════════════════════════════════════════════════
+   MANUAL MODE (Operator Mode)
+   ═══════════════════════════════════════════════════════════ */
+#modeManual { flex:1; }
+
+.ctrl-manual-layout {
+    display:flex;
+    gap:12px;
+    padding:12px;
+    width:100%;
+    min-height:min(720px, calc(100dvh - var(--header-height, 64px) - 190px));
+    height:auto;
+    overflow:visible;
+}
+
+/* Cột trái: Connection + Machine Status (220px cố định) */
+.ctrl-manual-left {
+    width:220px;
+    flex-shrink:0;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    overflow-y:auto;
+}
+
+/* Panel dùng chung trong Manual mode (Connection / Machine Status) */
+.ctrl-panel {
+    background:var(--gray-card);
+    border:1px solid var(--gray-border);
+    border-radius:6px;
+    box-shadow:var(--card-shadow);
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+    flex-shrink:0;
+}
+.ctrl-panel-title {
+    font-family:'Orbitron',monospace;
+    font-size:var(--hmi-font-small);
+    font-weight:600;
+    letter-spacing:1px;
+    color:var(--cyan-portal);
+    background:var(--gray-sidebar);
+    padding:8px 12px;
+    border-bottom:1px solid var(--gray-border);
+    flex-shrink:0;
+}
+.ctrl-panel-body {
+    padding:10px 12px;
+}
+
+/* Hàng thông số trong panel MACHINE STATUS */
+.ctrl-status-row {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    padding:7px 12px;
+    border-bottom:1px solid var(--gray-border);
+    font-size:var(--hmi-font-small);
+}
+.ctrl-status-row:last-child { border-bottom:none; }
+.ctrl-st-label {
+    font-family:'Orbitron',monospace;
+    font-size:var(--hmi-font-label);
+    letter-spacing:0.5px;
+    color:var(--text-muted);
+    flex-shrink:0;
+}
+.ctrl-st-val {
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-family:monospace;
+    font-size:11px;
+    font-weight:600;
+    color:var(--text-primary);
+    text-align:right;
+}
+
+/* Center: FluidNC iframe (flex:1, ~ chiếm phần lớn màn hình) */
+.ctrl-manual-center {
+    flex:1;
+    min-width:0;
+    position:relative;
+    display:flex;
+    flex-direction:column;
+    background:var(--gray-bg);
+    border:1px solid var(--gray-border);
+    border-radius:6px;
+    overflow:auto;
+    min-height:420px;
+}
+
+/* Overlay trạng thái (Empty / Loading / Error) trên iframe FluidNC */
+.ctrl-overlay {
+    position:absolute;
+    inset:0;
+    z-index:5;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    background:rgba(200,202,207,0.96);
+    text-align:center;
+    padding:0 20px;
+}
+
+/* Spinner loading */
+.ctrl-spin {
+    width:32px; height:32px;
+    border:3px solid var(--gray-border);
+    border-top-color:var(--cyan-portal);
+    border-radius:50%;
+    animation:ctrl-spin-rotate 0.8s linear infinite;
+}
+@keyframes ctrl-spin-rotate {
+    to { transform:rotate(360deg); }
+}
+
+/* Status bar dưới iframe FluidNC */
+.ctrl-iframe-bar {
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:6px 12px;
+    background:var(--gray-card);
+    border-top:1px solid var(--gray-border);
+    font-size:var(--hmi-font-small);
+    color:var(--text-secondary);
+    flex-shrink:0;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   AUTO MODE (AI Mode)
+   ═══════════════════════════════════════════════════════════ */
+#modeAuto {
+    flex-direction:row;
+    overflow:visible;
+    padding:0;
+    flex:1;
+    min-height:0;
+}
+
+.auto-layout {
+    display:flex;
+    gap:12px;
+    padding:12px;
+    min-height:min(720px, calc(100dvh - var(--header-height, 64px) - 190px));
+    height:auto;
+    width:100%;
+    overflow:visible;
+    flex:1;
+}
+
+/* Cột trái Auto: Workpiece & AI / G-code / Collision / Machine status (280px) */
+.auto-left {
+    width:280px;
+    flex-shrink:0;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    overflow-y:auto;
+    padding-right:4px;
+}
+
+/* Cột giữa Auto: Toolpath Simulation (flex:1, ~50%) */
+.auto-center {
+    flex:1;
+    min-width:0;
+    display:flex;
+    flex-direction:column;
+}
+
+/* Cột phải Auto: G-Code Queue + actions (260-300px) */
+.auto-right {
+    width:300px;
+    flex-shrink:0;
+    display:flex;
+    flex-direction:column;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   CARDS (dùng trong Auto mode)
+   ═══════════════════════════════════════════════════════════ */
+.card {
+    background:var(--gray-card);
+    border:1px solid var(--gray-border);
+    border-radius:6px;
+    padding:10px 12px;
+    box-shadow:var(--card-shadow);
+}
+.card-title {
+    font-family:'Orbitron',monospace;
+    font-size:var(--hmi-font-small);
+    color:var(--cyan-portal);
+    margin-bottom:8px;
+    letter-spacing:1px;
+    font-weight:600;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   UPLOAD AREA (STL/STEP/PNG + G-code file)
+   ═══════════════════════════════════════════════════════════ */
+.upload-area {
+    border:2px dashed var(--gray-border);
+    border-radius:6px;
+    padding:10px 8px;
+    text-align:center;
+    cursor:pointer;
+    transition:var(--transition);
+    font-size:11px;
+    line-height:1.6;
+    color:var(--text-secondary);
+}
+.upload-area:hover { border-color:var(--cyan-portal); background:var(--cyan-glow); }
+.upload-area.dragover { border-color:var(--status-active); background:rgba(0,170,0,0.1); }
+
+.file-info {
+    margin-top:6px;
+    padding:5px;
+    background:rgba(30,95,168,0.08);
+    border-radius:4px;
+    font-size:var(--hmi-font-small);
+    border-left:2px solid var(--cyan-portal);
+}
+.preview-img { max-width:100%; max-height:50px; border-radius:4px; margin-top:4px; }
+
+/* AI Task buttons (Pocket / Drill / Engrave / Profile) */
+.ai-task-grid {
+    display:grid;
+    grid-template-columns:repeat(2, 1fr);
+    gap:6px;
+    margin-top:8px;
+}
+.ai-task-btn {
+    padding:8px 4px;
+    background:var(--gray-sidebar);
+    border:1px solid var(--gray-border);
+    border-radius:4px;
+    color:var(--text-secondary);
+    font-family:'Orbitron',monospace;
+    font-size:var(--hmi-font-label);
+    font-weight:600;
+    letter-spacing:0.5px;
+    cursor:pointer;
+    transition:var(--transition);
+    text-align:center;
+}
+.ai-task-btn:hover { background:var(--cyan-portal); color:white; border-color:var(--cyan-portal); }
+.ai-task-btn:active { transform:translateY(1px); }
+
+/* ═══════════════════════════════════════════════════════════
+   G-CODE PREVIEW (AI generated)
+   ═══════════════════════════════════════════════════════════ */
+.gcode-preview {
+    background:var(--gray-bg);
+    border-radius:4px;
+    padding:8px;
+    font-family:monospace;
+    font-size:var(--hmi-font-small);
+    max-height:120px;
+    min-height:40px;
+    overflow:auto;
+    white-space:pre-wrap;
+    color:var(--text-secondary);
+    border:1px solid var(--gray-border);
+    outline:none;
+    cursor:text;
+    transition:border-color .2s, box-shadow .2s;
+    line-height:1.5;
+}
+
+/* Khi đang focus/edit */
+.gcode-preview:focus {
+    border-color:var(--cyan-portal);
+    box-shadow:0 0 0 2px rgba(0,170,255,0.15);
+    color:var(--text-primary);
+}
+
+/* Placeholder khi chưa có G-code */
+.gcode-preview:empty::before {
+    content: attr(data-placeholder);
+    color:var(--text-muted);
+    pointer-events:none;
+}
+
+/* Khi đã bị sửa — border vàng */
+.gcode-preview.is-modified {
+    border-color:var(--status-warning);
+    box-shadow:0 0 0 2px rgba(243,156,18,0.15);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BUTTONS DÙNG CHUNG
+   ═══════════════════════════════════════════════════════════ */
+.btn {
+    flex:1;
+    padding:6px 4px;
+    font-family:'Orbitron',monospace;
+    font-size:var(--hmi-font-label);
+    font-weight:600;
+    border:none;
+    border-radius:4px;
+    cursor:pointer;
+    transition:var(--transition);
+    text-align:center;
+}
+.btn:disabled { opacity:0.5; cursor:not-allowed; }
+.btn-success { background:var(--status-active); color:white; }
+.btn-success:hover { background:#008800; }
+.btn-danger { background:var(--status-alarm); color:white; }
+.btn-danger:hover { background:#AA0000; }
+.btn-primary { background:var(--cyan-portal); color:white; }
+.btn-primary:hover { background:var(--cyan-dark); }
+.btn-warning { background:var(--status-warning); color:#1A1A1A; }
+.btn-warning:hover { filter:brightness(0.92); }
+
+/* ═══════════════════════════════════════════════════════════
+   QUICK ACTIONS / QUICK CONNECT (q-btn)
+   ═══════════════════════════════════════════════════════════ */
+.quick-actions { display:flex; gap:6px; flex-wrap:wrap; }
+.q-btn {
+    flex:1;
+    min-width:60px;
+    min-height:var(--hmi-touch);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:6px 4px;
+    font-family:'Orbitron',monospace;
+    font-size:var(--hmi-font-label);
+    font-weight:600;
+    letter-spacing:0.5px;
+    border:1px solid var(--gray-border);
+    border-radius:4px;
+    background:var(--gray-sidebar);
+    color:var(--text-secondary);
+    cursor:pointer;
+    transition:var(--transition);
+    text-align:center;
+}
+.q-btn:hover { border-color:var(--cyan-portal); color:var(--cyan-portal); transform:translateY(-1px); box-shadow:0 2px 8px rgba(0,0,0,0.15); }
+.q-btn:disabled { opacity:0.5; cursor:not-allowed; transform:none; box-shadow:none; }
+.q-btn.home    { background:var(--gray-sidebar); border-color:var(--gray-border); color:var(--text-secondary); }
+.q-btn.stop    { background:rgba(255,204,0,0.15); border-color:var(--status-warning); color:#664400; }
+.q-btn.resume  { background:rgba(0,170,0,0.12); border-color:var(--status-active); color:#004400; }
+.q-btn.unlock  { background:rgba(30,95,168,0.1); border-color:var(--cyan-portal); color:var(--cyan-portal); }
+
+/* ═══════════════════════════════════════════════════════════
+   MACHINE STATUS BAR (Auto mode, dưới cột trái)
+   ═══════════════════════════════════════════════════════════ */
+.mach-status {
+    display:flex;
+    gap:8px;
+    align-items:center;
+    flex-wrap:wrap;
+    padding:6px 10px;
+    background:var(--gray-card);
+    border:1px solid var(--gray-border);
+    border-radius:4px;
+    font-size:var(--hmi-font-small);
+    flex-shrink:0;
+}
+.ms-label { color:var(--text-muted); font-size:var(--hmi-font-label); }
+.ms-val { font-family:monospace; }
+
+/* Thanh thông báo trạng thái (ctrlMsg) */
+.msg-bar {
+    font-size:var(--hmi-font-small);
+    padding:5px 10px;
+    background:var(--gray-bg);
+    border-radius:3px;
+    font-family:monospace;
+    flex-shrink:0;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   3D TOOLPATH SIMULATION (Digital Twin)
+   ═══════════════════════════════════════════════════════════ */
+.toolpath-wrap {
+    width:100%;
+    height:480px;
+    background:var(--gray-bg);
+    border-radius:6px;
+    display:block;
+    position:relative;
+    overflow:hidden;
+    flex-shrink:0;
+}
+.toolpath-wrap canvas { width:100%; height:100%; display:block; }
+
+.tp-overlay {
+    position:absolute;
+    inset:0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    color:var(--text-muted);
+    pointer-events:none;
+    transition:opacity 0.2s ease;
+}
+.tp-overlay.hidden { display:none; opacity:0; }
+.tp-overlay.visible { display:flex; opacity:1; }
+.tp-overlay-icon { font-size:40px; opacity:0.4; }
+.tp-overlay-text { font-size:13px; }
+.tp-overlay-hint { font-size:11px; color:var(--text-muted); }
+
+.tp-controls { display:flex; gap:5px; align-items:center; flex-wrap:wrap; }
+.tp-btn {
+    padding:5px 10px;
+    font-family:'Orbitron',monospace;
+    font-size:var(--hmi-font-label);
+    font-weight:600;
+    border:none;
+    border-radius:4px;
+    cursor:pointer;
+    transition:var(--transition);
+    background:var(--gray-sidebar);
+    color:var(--text-primary);
+}
+.tp-btn:hover { background:var(--cyan-portal); color:white; }
+.tp-btn.active { background:var(--cyan-portal); color:white; }
+
+.tp-info { display:flex; justify-content:space-between; font-size:var(--hmi-font-small); color:var(--text-muted); margin-top:4px; }
+
+.tp-progress { height:4px; background:var(--gray-border); border-radius:2px; overflow:hidden; margin-top:4px; position:relative; }
+.tp-progress-fill { height:100%; width:0%; background:var(--status-active); border-radius:2px; transition:width 0.3s; }
+
+.tp-sim-controls { display:flex; gap:6px; margin-top:10px; align-items:center; flex-wrap:wrap; }
+.tp-sim-controls .btn { flex:1; padding:7px 4px; font-size:var(--hmi-font-label); }
+
+.tp-speed-block { margin-top:12px; }
+.tp-speed-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+.tp-speed-label { font-size:var(--hmi-font-small); color:var(--text-muted); }
+.tp-speed-val { font-size:var(--hmi-font-small); color:var(--cyan-portal); font-family:monospace; }
+
+.slider-track { width:100%; height:4px; background:var(--gray-border); border-radius:2px; overflow:hidden; position:relative; }
+.slider-fill { height:100%; background:var(--cyan-portal); border-radius:2px; transition:width .3s; }
+.slider-track input[type="range"] {
+    position:absolute; inset:-6px 0; width:100%; height:calc(100% + 12px);
+    opacity:0; cursor:pointer; margin:0;
+}
+.tp-speed-labels { display:flex; justify-content:space-between; margin-top:4px; font-size:var(--hmi-font-label); color:var(--text-muted); }
+
+/* ═══════════════════════════════════════════════════════════
+   G-CODE QUEUE (cột phải Auto mode)
+   ═══════════════════════════════════════════════════════════ */
+.gcode-list {
+    flex:1;
+    overflow-y:auto;
+    border:1px solid var(--gray-border);
+    border-radius:4px;
+    background:var(--gray-card);
+}
+.gc-item {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:7px 10px;
+    border-bottom:1px solid var(--gray-border);
+    font-size:var(--hmi-font-small);
+    transition:var(--transition);
+}
+.gc-item:last-child { border-bottom:none; }
+.gc-item:hover { background:var(--cyan-glow); }
+.gc-name { font-family:monospace; color:var(--text-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; }
+
+.gc-status { font-size:var(--hmi-font-label); padding:2px 6px; border-radius:3px; font-weight:600; flex-shrink:0; margin:0 6px; }
+.gc-s-conf  { background:rgba(30,95,168,0.1); color:var(--cyan-portal); border:1px solid var(--cyan-portal); }
+.gc-s-pend  { background:rgba(255,204,0,0.1); color:#664400; border:1px solid rgba(255,204,0,0.4); }
+.gc-s-exec  { background:rgba(0,170,0,0.1); color:#004400; border:1px solid rgba(0,170,0,0.3); }
+.gc-s-rej   { background:rgba(204,0,0,0.08); color:#880000; border:1px solid rgba(204,0,0,0.3); }
+
+.gc-actions { display:flex; gap:4px; flex-shrink:0; }
+.gc-btn { background:transparent; border:1px solid var(--gray-border); color:var(--text-muted); font-size:var(--hmi-font-label); padding:2px 7px; border-radius:3px; cursor:pointer; transition:var(--transition); }
+.gc-btn:hover { border-color:var(--cyan-portal); color:var(--cyan-portal); }
+.gc-btn.run { border-color:var(--status-active-text); color:var(--status-active-text); }
+.gc-btn.run:hover { background:var(--status-active); color:white; }
+.gc-btn.conf { border-color:var(--cyan-portal); color:var(--cyan-portal); }
+.gc-btn.conf:hover { background:var(--cyan-portal); color:white; }
+.gc-empty { padding:24px; text-align:center; color:var(--text-muted); font-size:11px; }
+
+.refresh-btn { background:transparent; border:1px solid var(--gray-border); color:var(--text-muted); font-size:var(--hmi-font-small); padding:2px 8px; border-radius:3px; cursor:pointer; transition:var(--transition); }
+.refresh-btn:hover { border-color:var(--cyan-portal); color:var(--cyan-portal); }
+
+/* ═══════════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 1200px) {
+    .auto-layout { flex-wrap:wrap; overflow-y:auto; }
+    .auto-left { width:100%; flex-direction:row; flex-wrap:wrap; }
+    .auto-left .card { flex:1; min-width:200px; }
+    .auto-right { width:100%; max-height:250px; }
+
+    .ctrl-manual-left { width:180px; }
+}
+
+@media (max-width: 768px) {
+    .mode-bar { flex-wrap:wrap; }
+    .mode-status { margin-left:0; width:100%; justify-content:flex-start; }
+
+    /* Manual mode: xếp chồng cột trái lên trên iframe */
+    .ctrl-manual-layout { flex-direction:column; overflow-y:auto; }
+    .ctrl-manual-left { width:100%; flex-direction:row; flex-wrap:wrap; overflow-y:visible; }
+    .ctrl-manual-left .ctrl-panel { flex:1; min-width:220px; }
+    .ctrl-manual-center { min-height:320px; }
+
+    /* Auto mode */
+    .auto-left .card { min-width:100%; }
+    .ai-task-grid { grid-template-columns:repeat(2, 1fr); }
+    .tp-sim-controls { flex-wrap:wrap; }
+    .tp-speed-block { margin-left:0; width:100%; }
+}
+
+/* V14 — local scrollbars inside Control panels */
+.ctrl-manual-left,
+.ctrl-manual-center,
+.auto-left,
+.auto-right,
+.gcode-list,
+.gcode-preview,
+#gcodePreview,
+.machine-status,
+.conn-card {
+    min-height:0;
+    overflow-y:auto;
+    overflow-x:hidden;
+    scrollbar-width:thin;
+    scrollbar-color:var(--hmi-scroll-thumb, #747b84) var(--hmi-scroll-track, rgba(255,255,255,.22));
+}
+.gcode-list,
+.gcode-preview,
+#gcodePreview {
+    max-height:var(--hmi-panel-scroll-max, clamp(220px, 34dvh, 520px));
+}
+.ctrl-manual-left::-webkit-scrollbar,
+.ctrl-manual-center::-webkit-scrollbar,
+.auto-left::-webkit-scrollbar,
+.auto-right::-webkit-scrollbar,
+.gcode-list::-webkit-scrollbar,
+.gcode-preview::-webkit-scrollbar,
+#gcodePreview::-webkit-scrollbar {
+    width:12px;
+    height:12px;
+}
+.ctrl-manual-left::-webkit-scrollbar-thumb,
+.ctrl-manual-center::-webkit-scrollbar-thumb,
+.auto-left::-webkit-scrollbar-thumb,
+.auto-right::-webkit-scrollbar-thumb,
+.gcode-list::-webkit-scrollbar-thumb,
+.gcode-preview::-webkit-scrollbar-thumb,
+#gcodePreview::-webkit-scrollbar-thumb {
+    background:var(--hmi-scroll-thumb, #747b84);
+    border-radius:999px;
+    border:3px solid var(--gray-bg, #c8cacf);
+}
