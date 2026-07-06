@@ -16,6 +16,7 @@ body { flex-direction:column; }
     display:flex; flex-shrink:0;
     background:var(--gray-card);
     border-bottom:2px solid var(--gray-border);
+    position:sticky; top:0; z-index:50;
 }
 
 .db-status-chip {
