@@ -88,6 +88,43 @@
 <!-- ══ MAIN ══ -->
 <main class="main-area" id="mainArea">
 
+    <!-- ROW 0: Machine Status Bar (5 chip ngang) — luôn hiện trên đầu -->
+    <div class="db-status-bar">
+        <div class="db-status-chip">
+            <div class="db-chip-label">STATE</div>
+            <div class="db-chip-value">
+                <div class="db-state-dot idle" id="dbStateDot"></div>
+                <span id="dbState" class="db-chip-val highlight">---</span>
+            </div>
+        </div>
+        <div class="db-status-chip">
+            <div class="db-chip-label">FEED RATE</div>
+            <div class="db-chip-value">
+                <span id="dbFeedRate" class="db-chip-val">---</span>
+                <span class="db-chip-unit">mm/min</span>
+            </div>
+        </div>
+        <div class="db-status-chip">
+            <div class="db-chip-label">SPINDLE SPEED</div>
+            <div class="db-chip-value">
+                <span id="dbSpindle" class="db-chip-val">---</span>
+                <span class="db-chip-unit">RPM</span>
+            </div>
+        </div>
+        <div class="db-status-chip">
+            <div class="db-chip-label">PROGRAM</div>
+            <div class="db-chip-value">
+                <span id="dbProgram" class="db-chip-val" style="font-size:12px;">---</span>
+            </div>
+        </div>
+        <div class="db-status-chip" style="border-right:none;">
+            <div class="db-chip-label">ELAPSED TIME</div>
+            <div class="db-chip-value">
+                <span id="dbClock" class="db-chip-val" style="font-family:monospace;">--:--:--</span>
+            </div>
+        </div>
+    </div>
+
     <!-- HMI V5: Operator-first decision surface. This is the primary Home view. -->
     <section class="operator-decision-panel" data-v5="operator-first" aria-label="5-second operator decision">
         <div class="operator-run-card blocked" id="opRunCard">
@@ -138,43 +175,6 @@
         </div>
     </section>
 
-
-    <!-- ROW 1: Machine Status Bar (5 chip ngang) -->
-    <div class="db-status-bar">
-        <div class="db-status-chip">
-            <div class="db-chip-label">STATE</div>
-            <div class="db-chip-value">
-                <div class="db-state-dot idle" id="dbStateDot"></div>
-                <span id="dbState" class="db-chip-val highlight">---</span>
-            </div>
-        </div>
-        <div class="db-status-chip">
-            <div class="db-chip-label">FEED RATE</div>
-            <div class="db-chip-value">
-                <span id="dbFeedRate" class="db-chip-val">---</span>
-                <span class="db-chip-unit">mm/min</span>
-            </div>
-        </div>
-        <div class="db-status-chip">
-            <div class="db-chip-label">SPINDLE SPEED</div>
-            <div class="db-chip-value">
-                <span id="dbSpindle" class="db-chip-val">---</span>
-                <span class="db-chip-unit">RPM</span>
-            </div>
-        </div>
-        <div class="db-status-chip">
-            <div class="db-chip-label">PROGRAM</div>
-            <div class="db-chip-value">
-                <span id="dbProgram" class="db-chip-val" style="font-size:12px;">---</span>
-            </div>
-        </div>
-        <div class="db-status-chip" style="border-right:none;">
-            <div class="db-chip-label">ELAPSED TIME</div>
-            <div class="db-chip-value">
-                <span id="dbClock" class="db-chip-val" style="font-family:monospace;">--:--:--</span>
-            </div>
-        </div>
-    </div>
 
     <!-- ROW 2: 3 cột nội dung -->
     <div class="db-body">
