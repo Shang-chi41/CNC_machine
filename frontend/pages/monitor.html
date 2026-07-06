@@ -224,7 +224,7 @@
                 </div>
             </div>
 
-            <!-- CỘT PHẢI: Actual vs Theoretical + IO (30%) -->
+            <!-- CỘT PHẢI: Alarm + Connection (30%) -->
             <div class="mon-sim-col">
 
                 <!-- Actual vs Theoretical MATLAB — id phải giữ nguyên -->
@@ -265,79 +265,35 @@
                     </div>
                 </div>
 
-                <!-- IO Status panel -->
-                <div class="mon-panel" style="flex:1;">
-                    <div class="mon-panel-title">I/O STATUS</div>
-                    <div class="mon-io-grid">
-                        <div class="mon-io-section">
-                            <div class="mon-io-header">INPUT</div>
-                            <div class="mon-io-val">16 / 16</div>
-                        </div>
-                        <div class="mon-io-section">
-                            <div class="mon-io-header">OUTPUT</div>
-                            <div class="mon-io-val">12 / 12</div>
-                        </div>
+                <!-- ALARM PANEL — chiếm phần lớn cột, scroll rõ ràng -->
+                <div class="mon-alarm-full">
+                    <div class="mon-alarm-full-header">
+                        <span class="mon-alarm-full-title">ALARMS</span>
+                        <span id="alarmCount" class="mon-alarm-count-badge">0 alarm chưa xử lý</span>
+                        <button class="refresh-btn" onclick="fetchAlarms()" title="Làm mới">↺</button>
                     </div>
-                    <!-- Network dots -->
-                    <div class="mon-net-list">
-                        <div class="mon-net-row"><div class="sdot idle" id="netEdgeDot"></div><span>Edge</span></div>
-                        <div class="mon-net-row"><div class="sdot idle" id="netMatlabDot"></div><span>MATLAB</span></div>
-                        <div class="mon-net-row"><div class="sdot idle" id="netNxDot"></div><span>NX MCD</span></div>
-                        <div class="mon-net-row"><div class="sdot idle" id="netMongoDot"></div><span>MongoDB</span></div>
+                    <div class="alarm-filters">
+                        <button class="af-btn active" id="alarmFilter" onclick="setAlarmFilter('all',this)">Tất cả</button>
+                        <button class="af-btn" onclick="setAlarmFilter('warning',this)">⚠ Warning</button>
+                        <button class="af-btn" onclick="setAlarmFilter('critical',this)">🛑 Critical</button>
                     </div>
+                    <div class="mon-alarm-list mon-alarm-scroll" id="alarmList">
+                        <div class="empty-state">🔄 Đang tải...</div>
+                    </div>
+                </div>
+
+                <!-- Connection status — gọn dưới cùng -->
+                <div class="mon-conn-strip">
+                    <div class="mon-conn-row"><div class="sdot idle" id="netEdgeDot"></div><span>Edge</span></div>
+                    <div class="mon-conn-row"><div class="sdot idle" id="netMatlabDot"></div><span>MATLAB</span></div>
+                    <div class="mon-conn-row"><div class="sdot idle" id="netNxDot"></div><span>NX MCD</span></div>
+                    <div class="mon-conn-row"><div class="sdot idle" id="netMongoDot"></div><span>MongoDB</span></div>
                 </div>
 
             </div>
         </div>
 
-        <!-- ═══ BOTTOM: 4 cột charts + alarms ═══ -->
-        <div class="mon-bottom">
 
-            <!-- Chart FEED RATE -->
-            <div class="mon-chart-card">
-                <div class="mon-chart-title">FEED RATE (mm/min)</div>
-                <div class="mon-chart-wrap">
-                    <canvas id="chartFeed"></canvas>
-                </div>
-            </div>
-
-            <!-- Chart SPINDLE SPEED -->
-            <div class="mon-chart-card">
-                <div class="mon-chart-title">SPINDLE SPEED (RPM)</div>
-                <div class="mon-chart-wrap">
-                    <canvas id="chartSpindle"></canvas>
-                </div>
-            </div>
-
-            <!-- ALARMS panel -->
-            <div class="mon-alarm-card">
-                <div class="mon-alarm-header">
-                    <span>ALARMS</span>
-                    <span id="alarmCount" style="font-size:var(--hmi-font-label);color:var(--text-muted);">0 cảnh báo</span>
-                    <button class="refresh-btn" onclick="fetchAlarms()">↺</button>
-                </div>
-                <div class="alarm-filters">
-                    <button class="af-btn active" id="alarmFilter" onclick="setAlarmFilter('all',this)">Tất cả</button>
-                    <button class="af-btn" onclick="setAlarmFilter('warning',this)">⚠</button>
-                    <button class="af-btn" onclick="setAlarmFilter('critical',this)">🛑</button>
-                </div>
-                <div class="mon-alarm-list" id="alarmList">
-                    <div class="empty-state">🔄 Đang tải...</div>
-                </div>
-            </div>
-
-            <!-- I/O + Connection (4th col, moved detail here) -->
-            <div class="mon-chart-card" style="flex-direction:column;">
-                <div class="mon-chart-title">CYCLE TIME</div>
-                <div style="padding:10px 12px;display:flex;flex-direction:column;gap:8px;flex:1;">
-                    <div class="mon-io-row"><span class="mon-io-lbl">Program</span><span class="mon-io-v" id="monProgram">---</span></div>
-                    <div class="mon-io-row"><span class="mon-io-lbl">Cycle Time</span><span class="mon-io-v" id="monCycleTime">---</span></div>
-                    <div class="mon-io-row"><span class="mon-io-lbl">Feed Rate</span><span class="mon-io-v" id="monFeedRate2">---</span></div>
-                    <div class="mon-io-row"><span class="mon-io-lbl">Spindle</span><span class="mon-io-v" id="monSpindle2">---</span></div>
-                </div>
-            </div>
-
-        </div>
 
     </main>
 
