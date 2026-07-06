@@ -1,0 +1,343 @@
+/* dashboard.css — Redesign ISA-101 High Performance HMI
+ * Bố cục: Status Bar → 3 cột body → Quick Actions footer
+ */
+
+body { flex-direction:column; }
+
+/* Shared .app-shell layout is owned by hmi_core.css. */
+
+/* ── Main area ── */
+.main-area { flex:1; min-height:0; overflow-y:scroll; overflow-x:hidden; display:flex; flex-direction:column; }
+
+/* ════════════════════════════════════════════════════════
+   ROW 1 — MACHINE STATUS BAR
+   ════════════════════════════════════════════════════════ */
+.db-status-bar {
+    display:flex; flex-shrink:0;
+    background:var(--gray-card);
+    border-bottom:2px solid var(--gray-border);
+    position:sticky; top:0; z-index:50;
+}
+
+.db-status-chip {
+    flex:1; padding:8px 14px;
+    border-right:1px solid var(--gray-border);
+    display:flex; flex-direction:column; gap:3px;
+}
+
+.db-chip-label {
+    font-family:'Orbitron',monospace; font-size:var(--hmi-font-label); font-weight:600;
+    color:var(--text-muted); letter-spacing:1px; text-transform:uppercase;
+}
+
+.db-chip-value {
+    display:flex; align-items:baseline; gap:5px;
+}
+
+.db-chip-val {
+    font-family:'Orbitron',monospace; font-size:18px; font-weight:700;
+    color:var(--text-primary); line-height:1;
+}
+
+.db-chip-val.highlight { color:var(--status-active); }
+
+.db-chip-unit {
+    font-size:var(--hmi-font-label); color:var(--text-muted); font-weight:400;
+}
+
+.db-state-dot {
+    width:10px; height:10px; border-radius:50%; flex-shrink:0; margin-right:2px;
+}
+.db-state-dot.idle  { background:var(--gray-border); }
+.db-state-dot.run   { background:var(--status-active); animation:pulse 1s infinite; }
+.db-state-dot.hold  { background:var(--status-warning); animation:pulse 1.5s infinite; }
+.db-state-dot.alarm { background:var(--status-alarm); animation:pulse 0.6s infinite; }
+
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+/* ════════════════════════════════════════════════════════
+   ROW 2 — 3 CỘT BODY
+   ════════════════════════════════════════════════════════ */
+.db-body {
+    flex:1; display:flex; gap:0; overflow:hidden; min-height:0;
+}
+
+/* Common panel */
+.db-panel {
+    background:var(--gray-card); border:1px solid var(--gray-border);
+    border-radius:4px; overflow:hidden; display:flex; flex-direction:column;
+}
+
+.db-panel-title {
+    padding:6px 12px; background:rgba(30,95,168,0.08);
+    border-bottom:1px solid var(--gray-border);
+    font-family:'Orbitron',monospace; font-size:var(--hmi-font-label); font-weight:600;
+    color:var(--cyan-portal); letter-spacing:1px; text-transform:uppercase;
+    display:flex; align-items:center; justify-content:space-between; flex-shrink:0;
+}
+
+/* Badges */
+.db-badge-ok {
+    font-size:var(--hmi-font-label); background:rgba(0,170,0,0.12); color:var(--status-active);
+    border:1px solid rgba(0,170,0,0.3); padding:2px 8px; border-radius:10px; font-family:sans-serif;
+}
+.db-badge-alarm {
+    font-size:var(--hmi-font-label); background:rgba(204,0,0,0.12); color:var(--status-alarm);
+    border:1px solid rgba(204,0,0,0.3); padding:2px 8px; border-radius:10px; font-family:sans-serif;
+}
+
+/* ── LEFT COLUMN (35%) ── */
+.db-col-left {
+    width:35%; flex-shrink:0; padding:10px 12px;
+    display:flex; flex-direction:column; gap:8px;
+    border-right:1px solid var(--gray-border); overflow:hidden;
+}
+
+/* Alarm display */
+.db-alarm-display {
+    padding:14px 16px; display:flex; flex-direction:column;
+    align-items:center; gap:8px; flex:1;
+}
+
+.db-alarm-icon {
+    width:44px; height:44px; border-radius:50%; display:flex;
+    align-items:center; justify-content:center; flex-shrink:0;
+}
+.db-alarm-icon.ok    { background:rgba(0,170,0,0.12); color:var(--status-active); }
+.db-alarm-icon.alarm { background:rgba(204,0,0,0.12); color:var(--status-alarm); }
+.db-alarm-icon svg   { stroke:currentColor; }
+
+.db-alarm-text {
+    font-family:'Orbitron',monospace; font-size:13px; font-weight:700;
+    color:var(--text-primary); text-align:center;
+}
+.db-alarm-sub {
+    font-size:var(--hmi-font-small); color:var(--text-muted); text-align:center; line-height:1.4;
+}
+
+/* Connection rows */
+.db-conn-list { padding:4px 0; }
+.db-conn-row {
+    display:flex; align-items:center; gap:8px; padding:8px 12px;
+    border-bottom:1px solid var(--gray-border); font-size:11px;
+}
+.db-conn-dot {
+    width:8px; height:8px; border-radius:50%; flex-shrink:0;
+}
+.db-conn-dot.on   { background:var(--status-active); animation:pulse 2s infinite; }
+.db-conn-dot.off  { background:var(--status-alarm); }
+.db-conn-dot.idle { background:var(--gray-border); }
+.db-conn-name  { color:var(--text-secondary); font-weight:600; min-width:68px; }
+.db-conn-status { margin-left:auto; font-size:var(--hmi-font-small); color:var(--text-muted); font-family:monospace; }
+
+/* ── CENTER COLUMN (40%) ── */
+.db-col-center {
+    flex:1; padding:10px 12px; display:flex; flex-direction:column; gap:8px;
+    border-right:1px solid var(--gray-border); overflow:hidden;
+}
+
+/* Axis grid */
+.db-axis-grid {
+    display:flex; flex-direction:column; gap:10px; padding:12px 14px;
+}
+
+.db-axis-item {
+    display:grid;
+    grid-template-columns:20px 80px 28px 1fr;
+    align-items:center; gap:8px;
+}
+
+.db-axis-label {
+    font-family:'Orbitron',monospace; font-size:13px; font-weight:800; text-align:center;
+}
+.db-axis-val {
+    font-family:'Courier New',monospace; font-size:18px; font-weight:700;
+    color:var(--text-primary); text-align:right;
+}
+.db-axis-unit {
+    font-size:var(--hmi-font-label); color:var(--text-muted);
+}
+.db-axis-bar-wrap {
+    background:var(--gray-bg); border-radius:3px; height:8px; overflow:hidden;
+    border:1px solid var(--gray-border);
+}
+.db-axis-bar {
+    height:100%; border-radius:3px; transition:width 0.6s ease; min-width:2px;
+}
+
+/* Quick overview */
+.db-overview-grid { padding:0; flex:1; }
+.db-ov-row {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:8px 14px; border-bottom:1px solid var(--gray-border); font-size:11px;
+}
+.db-ov-label { color:var(--text-secondary); }
+.db-ov-val   { font-family:monospace; color:var(--cyan-portal); font-weight:600; font-size:12px; }
+
+/* ── RIGHT COLUMN (25%) ── */
+.db-col-right {
+    width:25%; flex-shrink:0; padding:10px 12px;
+    display:flex; flex-direction:column; gap:8px; overflow:hidden;
+}
+
+/* Recent alarm */
+.db-recent-alarm { padding:8px; flex:1; overflow-y:auto; }
+.db-no-alarm {
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    padding:16px 8px; font-size:11px; color:var(--text-muted);
+}
+.db-recent-item {
+    padding:6px 8px; margin-bottom:4px; border-radius:3px; font-size:var(--hmi-font-small);
+    border-left:3px solid transparent;
+}
+.db-recent-item.warn { background:rgba(255,204,0,0.1); border-left-color:var(--status-warning); }
+.db-recent-item.crit { background:rgba(204,0,0,0.08); border-left-color:var(--status-alarm); }
+.db-recent-type { font-weight:700; font-family:monospace; display:block; color:var(--text-primary); }
+.db-recent-msg  { color:var(--text-muted); font-size:var(--hmi-font-label); }
+
+/* System connection (right panel) */
+.db-sys-conn { padding:4px 0; }
+.db-sys-item {
+    display:flex; align-items:center; gap:10px; padding:8px 12px;
+    border-bottom:1px solid var(--gray-border);
+}
+.db-sys-dot {
+    width:10px; height:10px; border-radius:50%; flex-shrink:0;
+}
+.db-sys-dot.on   { background:var(--status-active); animation:pulse 2s infinite; }
+.db-sys-dot.off  { background:var(--status-alarm); }
+.db-sys-dot.idle { background:var(--gray-border); }
+.db-sys-info { display:flex; flex-direction:column; gap:1px; }
+.db-sys-name { font-size:11px; font-weight:600; color:var(--text-primary); }
+.db-sys-state { font-size:var(--hmi-font-label); color:var(--text-muted); font-family:monospace; }
+
+/* ════════════════════════════════════════════════════════
+   ROW 3 — QUICK ACTIONS FOOTER
+   ════════════════════════════════════════════════════════ */
+.db-quick-actions {
+    display:flex; align-items:center; gap:8px; flex-shrink:0;
+    padding:6px 14px; background:var(--gray-sidebar);
+    border-top:1px solid var(--gray-border);
+}
+
+.db-qa-label {
+    font-family:'Orbitron',monospace; font-size:var(--hmi-font-label); color:var(--text-muted);
+    letter-spacing:1px; white-space:nowrap; margin-right:4px;
+}
+
+.db-qa-btn {
+    padding:5px 14px; font-family:'Orbitron',monospace; font-size:var(--hmi-font-label); font-weight:600;
+    letter-spacing:0.8px; background:transparent; border:1px solid var(--gray-border);
+    color:var(--text-secondary); border-radius:3px; text-decoration:none;
+    transition:var(--transition); white-space:nowrap;
+}
+.db-qa-btn:hover {
+    border-color:var(--cyan-portal); color:var(--cyan-portal);
+    background:rgba(30,95,168,0.08);
+}
+
+.db-qa-time { margin-left:auto; }
+
+/* V15 — Home/main-screen scroll support at browser zoom */
+.page-home .main-area,
+body.page-home .main-area {
+    overflow-y:auto;
+    overflow-x:hidden;
+    display:flex;
+    flex-direction:column;
+    min-height:0;
+    scrollbar-width:thin;
+    scrollbar-color:var(--hmi-scroll-thumb, #747b84) var(--hmi-scroll-track, rgba(255,255,255,.22));
+}
+
+/* Let the Home content grow so the main page scrollbar can actually appear. */
+.page-home .operator-decision-panel,
+.page-home .db-status-bar,
+.page-home .db-body,
+.page-home .db-quick-actions {
+    flex:0 0 auto;
+}
+
+.page-home .db-body {
+    min-height:auto;
+    height:auto;
+    overflow:visible;
+    flex-wrap:wrap;
+}
+
+/* Inner Home panels also scroll locally when content is long. */
+.page-home .db-col-left,
+.page-home .db-col-center,
+.page-home .db-col-right,
+.page-home .db-panel,
+.page-home .db-conn-list,
+.page-home .db-axis-grid,
+.page-home .db-overview-grid,
+.page-home .db-recent-alarm,
+.page-home .db-sys-conn {
+    min-height:0;
+    overflow-y:auto;
+    overflow-x:hidden;
+    scrollbar-width:thin;
+    scrollbar-color:var(--hmi-scroll-thumb, #747b84) var(--hmi-scroll-track, rgba(255,255,255,.22));
+}
+
+.page-home .db-col-left,
+.page-home .db-col-center,
+.page-home .db-col-right {
+    max-height:clamp(280px, 58dvh, 720px);
+}
+
+.page-home .db-panel {
+    max-height:clamp(180px, 32dvh, 520px);
+}
+
+.page-home .db-conn-list,
+.page-home .db-axis-grid,
+.page-home .db-overview-grid,
+.page-home .db-recent-alarm,
+.page-home .db-sys-conn {
+    max-height:clamp(150px, 26dvh, 420px);
+}
+
+.page-home .main-area::-webkit-scrollbar,
+.page-home .db-col-left::-webkit-scrollbar,
+.page-home .db-col-center::-webkit-scrollbar,
+.page-home .db-col-right::-webkit-scrollbar,
+.page-home .db-panel::-webkit-scrollbar,
+.page-home .db-conn-list::-webkit-scrollbar,
+.page-home .db-axis-grid::-webkit-scrollbar,
+.page-home .db-overview-grid::-webkit-scrollbar,
+.page-home .db-recent-alarm::-webkit-scrollbar,
+.page-home .db-sys-conn::-webkit-scrollbar {
+    width:12px;
+    height:12px;
+}
+
+.page-home .main-area::-webkit-scrollbar-thumb,
+.page-home .db-col-left::-webkit-scrollbar-thumb,
+.page-home .db-col-center::-webkit-scrollbar-thumb,
+.page-home .db-col-right::-webkit-scrollbar-thumb,
+.page-home .db-panel::-webkit-scrollbar-thumb,
+.page-home .db-conn-list::-webkit-scrollbar-thumb,
+.page-home .db-axis-grid::-webkit-scrollbar-thumb,
+.page-home .db-overview-grid::-webkit-scrollbar-thumb,
+.page-home .db-recent-alarm::-webkit-scrollbar-thumb,
+.page-home .db-sys-conn::-webkit-scrollbar-thumb {
+    background:var(--hmi-scroll-thumb, #747b84);
+    border-radius:999px;
+    border:3px solid var(--gray-bg, #c8cacf);
+}
+
+@media (max-width: 1366px) {
+    .page-home .db-col-left,
+    .page-home .db-col-center,
+    .page-home .db-col-right {
+        width:100%;
+        flex:1 1 100%;
+        max-height:none;
+    }
+    .page-home .db-body {
+        flex-direction:column;
+    }
+}

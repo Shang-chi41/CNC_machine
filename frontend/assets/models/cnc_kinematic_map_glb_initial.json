@@ -1,0 +1,81 @@
+{
+  "schema_version": "cnc_kinematic_map.v4_y_table_fix",
+  "model": "VIRTUAL_MILLING_CNC.glb",
+  "input_unit": "mm",
+  "model_unit": "m",
+  "mpos_to_model_scale": 0.001,
+  "notes": [
+    "Kinematic mapping v4 fixes Y table workholding movement based on NX MCD Physics Navigator.",
+    "In NX MCD, BASE_Y rigid body owns JIG, Y_SLIDER and BASE_Y collision bodies; therefore the frontend Y virtual link must move the table plus fixture/workholding objects.",
+    "The exported GLB contains GÁ PHÔI as a parent node with child nodes JIG and JIG_1; some exports may not preserve Y_SLIDER, so the map binds both parent and child names for robustness.",
+    "Z_BALL_SCREW is mounted on the X carriage: it follows X motion but does not follow Z translation.",
+    "BASE_Z is a child of the virtual X link and then moves on Z, so the spindle/head follows X and Z correctly.",
+    "Calibrate sign/model_axis using X+10, Y+10, Z+10 in the viewer.",
+    "Y_SLIDER is optional because the current GLB export does not include a node with that exact name; BASE_Y/GÁ PHÔI/JIG still bind the table/workholding motion."
+  ],
+  "links": {
+    "base": {
+      "parent": null,
+      "objects": [
+        "BASE",
+        "X_BALL_SCREW",
+        "Y_BALL_SCREW"
+      ],
+      "axis": null
+    },
+    "x_axis": {
+      "parent": "base",
+      "objects": [
+        "BASE_X",
+        "Z_BALL_SCREW"
+      ],
+      "axis": "X",
+      "model_axis": "x",
+      "sign": 1,
+      "offset": 0.0
+    },
+    "z_axis": {
+      "parent": "x_axis",
+      "objects": [
+        "BASE_Z"
+      ],
+      "axis": "Z",
+      "model_axis": "z",
+      "sign": 1,
+      "offset": 0.0
+    },
+    "y_axis": {
+      "parent": "base",
+      "objects": [
+        "BASE_Y",
+        "GÁ PHÔI",
+        "JIG",
+        "JIG_1"
+      ],
+      "axis": "Y",
+      "model_axis": "y",
+      "sign": 1,
+      "offset": 0.0,
+      "optional_objects": [
+        "Y_SLIDER"
+      ]
+    }
+  },
+  "expected_motion": {
+    "X+10mm": [
+      "BASE_X moves on model x",
+      "Z_BALL_SCREW follows X",
+      "BASE_Z/spindle/endmill also follows X through the virtual parent link",
+      "BASE_Y and GÁ PHÔI remain still"
+    ],
+    "Y+10mm": [
+      "BASE_Y moves on model y",
+      "GÁ PHÔI, JIG/JIG_1 and the workholding fixture follow Y",
+      "X/Z gantry remains still"
+    ],
+    "Z+10mm": [
+      "BASE_Z/spindle/endmill moves on model z",
+      "Z_BALL_SCREW remains at the X-carriage height/position and only follows X, not Z"
+    ]
+  }
+}
