@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Giám Sát - CNC Smart System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800&family=Be+Vietnam+Pro:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/isa101.css">
+<link rel="stylesheet" href="/static/css/hmi_core.css">
+    <link rel="stylesheet" href="/static/css/ai.css">
+    <link rel="stylesheet" href="/static/css/monitor.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body class="page-monitor operator-mode">
+
+<header class="header">
+    <div class="logo-bk">
+        <img src="/static/images/hust_logo.png" alt="HUST" onerror="this.src='https://via.placeholder.com/55x55?text=HUST'">
+        <div class="logo-bk-text">ĐH Bách Khoa<br>Hà Nội</div>
+    </div>
+    <div class="header-center">
+        <div class="main-title">TÍNH TOÁN, THIẾT KẾ HỆ THỐNG ĐIỀU KHIỂN MÁY CNC ĐỂ BÀN TỰ CHỦ THÔNG MINH</div>
+        <div class="sub-title">GVHD: LÊ GIANG NAM — APS LAB — HUST</div>
+    </div>
+    <img src="/static/images/vimes_logo.png" alt="Vimes" class="header-brand-logo" onerror="this.src='https://via.placeholder.com/55x55?text=V'">
+</header>
+
+<div class="app-shell">
+
+    <!-- ══ SIDEBAR ══ -->
+    <aside class="sidebar">
+        <nav class="sidebar-nav">
+            <a class="nav-item" href="/">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 12L12 3l9 9"/><path d="M9 21V12h6v9"/></svg>
+                <span class="nav-label">Home</span>
+            </a>
+            <a class="nav-item active" href="/monitor">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><polyline points="6,14 9,9 12,12 15,7 18,10"/></svg>
+                <span class="nav-label">Giám Sát</span>
+            </a>
+            <a class="nav-item" href="/control">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="4" width="20" height="16" rx="2"/><circle cx="9" cy="12" r="3"/><path d="M14 9h4M14 12h3M14 15h2"/></svg>
+                <span class="nav-label">Điều Khiển</span>
+            </a>
+            <a class="nav-item" href="/history">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18M8 14h4M8 18h6"/></svg>
+                <span class="nav-label">Lịch Sử</span>
+            </a>
+            <a class="nav-item" href="/cnc3d">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 2l8 4v8l-8 4-8-4V6z"/><path d="M12 10l8-4M12 10L4 6M12 10v8"/></svg>
+                <span class="nav-label">3D Twin</span>
+            </a>
+    
+        <a class="nav-item" href="/guide" id="nav-guide">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 4v15.5"/><path d="M6.5 2H20v15H6.5A2.5 2.5 0 0 0 4 19.5V4A2 2 0 0 1 6 2z"/>
+            </svg>
+            <span class="nav-label">Hướng Dẫn</span>
+        </a>
+        <a class="nav-item" href="/settings">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>
+                <span class="nav-label">Thông Số</span>
+            </a>
+        </nav>
+        <div class="sidebar-status">
+            <div class="sdot-row"><div class="sdot idle" id="sEdgeDot"></div><span id="sEdgeTxt">Edge...</span></div>
+            <div class="sdot-row"><div class="sdot idle" id="sAlmDot"></div><span id="sAlmTxt">Alarm...</span></div>
+        </div>
+    </aside>
+
+    <!-- ══ MAIN ══ -->
+    <main class="main-area">
+
+        <!-- HMI V5: Monitor source clarity. 3D always states real machine vs simulation/check. -->
+        <section class="operator-monitor-banner" data-v5="3d-source-clarity" aria-label="3D Twin source clarity">
+            <div class="operator-monitor-main">
+                <span class="operator-source-dot" id="opSourceDot" aria-hidden="true"></span>
+                <div>
+                    <div class="operator-monitor-title" id="opMonitorSourceLabel">Đang hiển thị: CHƯA CÓ DỮ LIỆU MÁY THẬT</div>
+                    <div class="operator-monitor-subtitle" id="opMonitorSourceNote">Chưa nhận selected pose từ Control Selector.</div>
+                </div>
+            </div>
+            <div class="operator-monitor-status">
+                <div class="operator-monitor-chip"><span>RUN</span><strong id="opMonitorRun">BLOCKED</strong></div>
+                <div class="operator-monitor-chip"><span>SYNC</span><strong id="opMonitorSync">UNKNOWN</strong></div>
+                <div class="operator-monitor-chip"><span>CHECK</span><strong id="opMonitorCheck">---</strong></div>
+            </div>
+            <div class="operator-mode-switch">
+                <button type="button" class="operator-mode-btn active" data-hmi-mode="operator" onclick="setHmiModeV5('operator')">Operator</button>
+                <button type="button" class="operator-mode-btn" data-hmi-mode="engineer" onclick="setHmiModeV5('engineer')">Engineer</button>
+            </div>
+        </section>
+
+
+
+        <!-- ═══ TOP BAR ═══ -->
+        <div class="panel-top-bar hmi-state-strip" aria-label="Trạng thái vận hành chính">
+            <div class="machine-state hmi-state-block">
+                <div class="st-dot idle" id="stateDot"></div>
+                <div>
+                    <span class="hmi-eyebrow">MACHINE STATE</span>
+                    <span class="st-label" id="stateLabel">---</span>
+                </div>
+            </div>
+            <div class="mon-kpis hmi-kpi-bank">
+                <div class="mon-kpi"><span class="mon-kpi-label">FEED</span><span class="mon-kpi-val" id="feedrate">---</span><span class="mon-kpi-unit">mm/min</span></div>
+                <div class="mon-kpi"><span class="mon-kpi-label">SPINDLE</span><span class="mon-kpi-val" id="spindle">---</span><span class="mon-kpi-unit">RPM</span></div>
+                <div class="mon-kpi"><span class="mon-kpi-label">CURRENT</span><span class="mon-kpi-val" id="current">---</span><span class="mon-kpi-unit">A</span></div>
+            </div>
+            <div class="sync-gate" id="syncGate">
+                <div class="sync-gate-item"><span>SYNC</span><strong id="dtSyncStatus">UNKNOWN</strong></div>
+                <div class="sync-gate-item"><span>OWNER</span><strong id="dtControlOwner">---</strong></div>
+                <div class="sync-gate-item"><span>CHECK</span><strong id="dtCheckStatus">---</strong></div>
+                <div class="sync-gate-item"><span>RUN</span><strong id="dtRunGate">BLOCKED</strong></div>
+            </div>
+            <div class="update-time"><span class="st-time" id="lastUpdateTime">---</span></div>
+        </div>
+
+        <!-- ═══ CENTER: 3D Twin + data panels ═══ -->
+        <div class="mon-center">
+
+            <!-- CỘT TRÁI: 3D Digital Twin (~40%) -->
+            <div class="mon-twin-wrap hmi-twin-wrap">
+                <div class="mon-twin-header hmi-twin-header">
+                    <div>
+                        <span class="mon-twin-title">3D DIGITAL TWIN</span>
+                        <div class="twin-subline">Selected pose from Sync Epoch + Control Selector</div>
+                    </div>
+                    <div class="mon-twin-toolbar">
+                        <button class="tp-btn" onclick="window.cncTwin?.reset?.()">Home</button>
+                        <button class="tp-btn" onclick="window.cncTwin?.toggleWireframe?.()">Wire</button>
+                        <button class="tp-btn" onclick="window.cncTwin?.toggleInfoPanel?.()" title="Ẩn/hiện bảng thông tin trong 3D">Info</button>
+                        <a class="tp-btn tp-link" href="/cnc3d" target="_blank" rel="noreferrer">Open</a>
+                    </div>
+                </div>
+                <div class="twin-source-ribbon" id="dtSourceRibbon">Waiting for selected pose…</div>
+                <iframe id="digitalTwinFrame" src="/static/cnc_viewer_glb_realtime.html?embedded=1" class="mon-twin-frame" allow="autoplay"></iframe>
+                <div class="twin-sync-footer">
+                    <span>Source: <strong id="dtPoseSource">---</strong></span>
+                    <span>Epoch: <strong id="dtSyncEpoch">---</strong></span>
+                </div>
+            </div>
+
+            <!-- CỘT GIỮA: Axis + Machine Info (30%) -->
+            <div class="mon-data-col">
+
+                <div class="mon-panel mon-metric-switcher">
+                    <div class="mon-metric-tabs" role="tablist" aria-label="Dữ liệu trục">
+                        <button type="button" class="mon-metric-tab active" data-metric-tab="mpos" aria-selected="true">MPos</button>
+                        <button type="button" class="mon-metric-tab" data-metric-tab="velocity" aria-selected="false">Velocity</button>
+                        <button type="button" class="mon-metric-tab" data-metric-tab="moment" aria-selected="false">Moment</button>
+                    </div>
+
+                    <section class="mon-metric-panel active" data-metric-panel="mpos">
+                        <div class="mon-panel-title">AXIS (MPos)</div>
+                        <div class="mon-axis-list">
+                            <div class="mon-axis-row">
+                                <span class="mon-ax-lbl x">X</span>
+                                <span class="mon-ax-val" id="posX">---</span>
+                                <span class="mon-ax-unit">mm</span>
+                            </div>
+                            <div class="mon-axis-row">
+                                <span class="mon-ax-lbl y">Y</span>
+                                <span class="mon-ax-val" id="posY">---</span>
+                                <span class="mon-ax-unit">mm</span>
+                            </div>
+                            <div class="mon-axis-row" style="border-bottom:none;">
+                                <span class="mon-ax-lbl z">Z</span>
+                                <span class="mon-ax-val" id="posZ">---</span>
+                                <span class="mon-ax-unit">mm</span>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="mon-metric-panel" data-metric-panel="velocity" hidden>
+                        <div class="mon-panel-title">VELOCITY</div>
+                        <div class="mon-axis-list">
+                            <div class="mon-axis-row">
+                                <span class="mon-ax-lbl x">X</span>
+                                <span class="mon-ax-val mon-ax-val--sm" id="velX">---</span>
+                                <span class="mon-ax-unit">mm/s</span>
+                            </div>
+                            <div class="mon-axis-row">
+                                <span class="mon-ax-lbl y">Y</span>
+                                <span class="mon-ax-val mon-ax-val--sm" id="velY">---</span>
+                                <span class="mon-ax-unit">mm/s</span>
+                            </div>
+                            <div class="mon-axis-row" style="border-bottom:none;">
+                                <span class="mon-ax-lbl z">Z</span>
+                                <span class="mon-ax-val mon-ax-val--sm" id="velZ">---</span>
+                                <span class="mon-ax-unit">mm/s</span>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="mon-metric-panel" data-metric-panel="moment" hidden>
+                        <div class="mon-panel-title">MOMENT (TORQUE)</div>
+                        <div class="mon-axis-list">
+                            <div class="mon-axis-row">
+                                <span class="mon-ax-lbl x">X</span>
+                                <span class="mon-ax-val mon-ax-val--sm" id="momX">---</span>
+                                <span class="mon-ax-unit">N·m</span>
+                            </div>
+                            <div class="mon-axis-row">
+                                <span class="mon-ax-lbl y">Y</span>
+                                <span class="mon-ax-val mon-ax-val--sm" id="momY">---</span>
+                                <span class="mon-ax-unit">N·m</span>
+                            </div>
+                            <div class="mon-axis-row" style="border-bottom:none;">
+                                <span class="mon-ax-lbl z">Z</span>
+                                <span class="mon-ax-val mon-ax-val--sm" id="momZ">---</span>
+                                <span class="mon-ax-unit">N·m</span>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+
+                <!-- Status badges (giữ nguyên logic JS cũ) -->
+                <div class="status-badges">
+                    <span class="st-badge" id="toolBadge">🔧 ---</span>
+                    <span class="st-badge" id="matBadge">🧱 ---</span>
+                    <span class="st-badge" id="rangeBadge">---</span>
+                    <span class="load-pill" id="loadPill">🟢 Kết nối...</span>
+                </div>
+            </div>
+
+            <!-- CỘT PHẢI: Actual vs Theoretical + IO (30%) -->
+            <div class="mon-sim-col">
+
+                <!-- Actual vs Theoretical MATLAB — id phải giữ nguyên -->
+                <div class="mon-panel" id="simComparePanel" style="display:none;">
+                    <div class="mon-panel-title">ACTUAL vs THEORETICAL (MATLAB)</div>
+                    <div class="mon-sim-table">
+                        <div class="mon-sim-header">
+                            <span>AXIS</span><span>ACTUAL</span><span>THEORETICAL</span><span>Δ</span><span>ERROR%</span>
+                        </div>
+                        <div class="mon-sim-row x">
+                            <span>X</span>
+                            <span id="simActX">—</span>
+                            <span id="simThX">—</span>
+                            <span id="simDX">—</span>
+                            <span id="simErrX">—</span>
+                        </div>
+                        <div class="mon-sim-row y">
+                            <span>Y</span>
+                            <span id="simActY">—</span>
+                            <span id="simThY">—</span>
+                            <span id="simDY">—</span>
+                            <span id="simErrY">—</span>
+                        </div>
+                        <div class="mon-sim-row z">
+                            <span>Z</span>
+                            <span id="simActZ">—</span>
+                            <span id="simThZ">—</span>
+                            <span id="simDZ">—</span>
+                            <span id="simErrZ">—</span>
+                        </div>
+                    </div>
+                    <div class="mon-sim-accuracy">
+                        <span class="mon-sim-acc-label">OVERALL ACCURACY</span>
+                        <div class="mon-sim-bar-wrap">
+                            <div id="simMatchBar" class="mon-sim-bar" style="width:0%;"></div>
+                        </div>
+                        <span id="simMatchPct" class="mon-sim-pct">—</span>
+                    </div>
+                </div>
+
+                <!-- IO Status panel -->
+                <div class="mon-panel" style="flex:1;">
+                    <div class="mon-panel-title">I/O STATUS</div>
+                    <div class="mon-io-grid">
+                        <div class="mon-io-section">
+                            <div class="mon-io-header">INPUT</div>
+                            <div class="mon-io-val">16 / 16</div>
+                        </div>
+                        <div class="mon-io-section">
+                            <div class="mon-io-header">OUTPUT</div>
+                            <div class="mon-io-val">12 / 12</div>
+                        </div>
+                    </div>
+                    <!-- Network dots -->
+                    <div class="mon-net-list">
+                        <div class="mon-net-row"><div class="sdot idle" id="netEdgeDot"></div><span>Edge</span></div>
+                        <div class="mon-net-row"><div class="sdot idle" id="netMatlabDot"></div><span>MATLAB</span></div>
+                        <div class="mon-net-row"><div class="sdot idle" id="netNxDot"></div><span>NX MCD</span></div>
+                        <div class="mon-net-row"><div class="sdot idle" id="netMongoDot"></div><span>MongoDB</span></div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- ═══ BOTTOM: 4 cột charts + alarms ═══ -->
+        <div class="mon-bottom">
+
+            <!-- Chart FEED RATE -->
+            <div class="mon-chart-card">
+                <div class="mon-chart-title">FEED RATE (mm/min)</div>
+                <div class="mon-chart-wrap">
+                    <canvas id="chartFeed"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart SPINDLE SPEED -->
+            <div class="mon-chart-card">
+                <div class="mon-chart-title">SPINDLE SPEED (RPM)</div>
+                <div class="mon-chart-wrap">
+                    <canvas id="chartSpindle"></canvas>
+                </div>
+            </div>
+
+            <!-- ALARMS panel -->
+            <div class="mon-alarm-card">
+                <div class="mon-alarm-header">
+                    <span>ALARMS</span>
+                    <span id="alarmCount" style="font-size:var(--hmi-font-label);color:var(--text-muted);">0 cảnh báo</span>
+                    <button class="refresh-btn" onclick="fetchAlarms()">↺</button>
+                </div>
+                <div class="alarm-filters">
+                    <button class="af-btn active" id="alarmFilter" onclick="setAlarmFilter('all',this)">Tất cả</button>
+                    <button class="af-btn" onclick="setAlarmFilter('warning',this)">⚠</button>
+                    <button class="af-btn" onclick="setAlarmFilter('critical',this)">🛑</button>
+                </div>
+                <div class="mon-alarm-list" id="alarmList">
+                    <div class="empty-state">🔄 Đang tải...</div>
+                </div>
+            </div>
+
+            <!-- I/O + Connection (4th col, moved detail here) -->
+            <div class="mon-chart-card" style="flex-direction:column;">
+                <div class="mon-chart-title">CYCLE TIME</div>
+                <div style="padding:10px 12px;display:flex;flex-direction:column;gap:8px;flex:1;">
+                    <div class="mon-io-row"><span class="mon-io-lbl">Program</span><span class="mon-io-v" id="monProgram">---</span></div>
+                    <div class="mon-io-row"><span class="mon-io-lbl">Cycle Time</span><span class="mon-io-v" id="monCycleTime">---</span></div>
+                    <div class="mon-io-row"><span class="mon-io-lbl">Feed Rate</span><span class="mon-io-v" id="monFeedRate2">---</span></div>
+                    <div class="mon-io-row"><span class="mon-io-lbl">Spindle</span><span class="mon-io-v" id="monSpindle2">---</span></div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- ══ AI PANEL ══ -->
+    <aside class="ai-panel">
+        <div class="ai-header">
+            <span class="ai-header-title">⚡ AI ASSISTANT</span>
+            <span class="ai-prov-badge" id="aiProvBadge">gemini ▾</span>
+        </div>
+        <div class="ai-user-bar">
+            <div class="ai-user-dot"></div>
+            <span id="aiUser">...</span>
+            <span style="font-size:var(--hmi-font-label);color:var(--text-muted);" id="aiRoleLbl"></span>
+            <button class="ai-logout-btn" onclick="doLogout()">LOGOUT</button>
+        </div>
+        <div class="ai-ctx-bar">
+            <div class="ai-ctx-dot"></div>
+            <span>GIÁM SÁT REALTIME</span>
+        </div>
+        <div class="ai-msgs" id="aiMsgs">
+            <div class="ai-msg sys">Ngữ cảnh: Monitor</div>
+            <div class="ai-msg ai">Tôi đang theo dõi máy realtime. Hỏi tôi về alarm, xu hướng dòng điện, hoặc phân tích dữ liệu hiện tại! 📡</div>
+        </div>
+        <div class="ai-input-area">
+            <div class="ai-input-row">
+                <textarea class="ai-textarea" id="aiIn" placeholder="Nhập câu hỏi..." rows="2" onkeydown="aiKeydown(event)"></textarea>
+                <button class="ai-send" id="aiBtn" onclick="aiSend()">➤</button>
+            </div>
+            <div class="ai-tools">
+                <span class="ai-tier-lbl" id="aiTierLbl">tier: cloud</span>
+            </div>
+        </div>
+    </aside>
+
+</div>
+
+<script type="module" src="/static/js/monitor.js"></script>
+<script type="module" src="/static/js/hmi_state_presenter_v5.js"></script>
+<script type="module" src="/static/js/hmi_core.js"></script>
+</body>
+</html>
