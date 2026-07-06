@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hướng Dẫn HMI - CNC Smart System</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800&family=Be+Vietnam+Pro:wght@300;400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/isa101.css">
+<link rel="stylesheet" href="/static/css/ai.css">
+<link rel="stylesheet" href="/static/css/hmi_core.css">
+</head>
+<body class="page-guide operator-mode">
+<header class="header">
+    <div class="logo-bk">
+        <img src="/static/images/hust_logo.png" alt="HUST" onerror="this.src='https://via.placeholder.com/55x55?text=HUST'">
+        <div class="logo-bk-text">ĐH Bách Khoa<br>Hà Nội</div>
+    </div>
+    <div class="header-center">
+        <div class="main-title">TÍNH TOÁN, THIẾT KẾ HỆ THỐNG ĐIỀU KHIỂN MÁY CNC ĐỂ BÀN TỰ CHỦ THÔNG MINH</div>
+        <div class="sub-title">Operator Guide — Sync Epoch · Control Selector · ISA-101 HMI</div>
+    </div>
+    <img src="/static/images/vimes_logo.png" alt="Vimes" class="header-brand-logo" onerror="this.src='https://via.placeholder.com/55x55?text=V'">
+</header>
+<div class="app-shell">
+<aside class="sidebar">
+    <nav class="sidebar-nav">
+        <a class="nav-item" href="/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 12L12 3l9 9"/><path d="M9 21V12h6v9"/></svg><span class="nav-label">Home</span></a>
+        <a class="nav-item" href="/monitor"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><polyline points="6,14 9,9 12,12 15,7 18,10"/></svg><span class="nav-label">Giám Sát</span></a>
+        <a class="nav-item" href="/control"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="4" width="20" height="16" rx="2"/><circle cx="9" cy="12" r="3"/><path d="M14 9h4M14 12h3M14 15h2"/></svg><span class="nav-label">Điều Khiển</span></a>
+        <a class="nav-item" href="/history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18M8 14h4M8 18h6"/></svg><span class="nav-label">Lịch Sử</span></a>
+        <a class="nav-item" href="/cnc3d"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 2l8 4v8l-8 4-8-4V6z"/><path d="M12 10l8-4M12 10L4 6M12 10v8"/></svg><span class="nav-label">3D Twin</span></a>
+        <a class="nav-item active" href="/guide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 4v15.5"/><path d="M6.5 2H20v15H6.5A2.5 2.5 0 0 0 4 19.5V4A2 2 0 0 1 6 2z"/></svg><span class="nav-label">Hướng Dẫn</span></a>
+        <a class="nav-item" href="/settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg><span class="nav-label">Thông Số</span></a>
+    </nav>
+    <div class="sidebar-status"><div class="sdot-row"><div class="sdot idle"></div><span>Offline</span></div><div class="sdot-row"><div class="sdot idle"></div><span>No alarm</span></div></div>
+</aside>
+<main class="main-area">
+
+        <section class="guide-page operator-v5" data-v5="operator-guide-faq">
+            <section class="guide-hero">
+                <h1 class="guide-title">Hướng dẫn vận hành HMI theo người dùng</h1>
+                <p class="guide-subtitle">Mục tiêu của HMI V5 là giúp người vận hành trả lời nhanh: có được chạy máy không, vì sao bị khóa, bước tiếp theo là gì, và 3D Twin đang là máy thật hay mô phỏng.</p>
+                <div class="guide-actions">
+                    <a href="/">Xem trạng thái chạy</a>
+                    <a href="/control">Điều khiển</a>
+                    <a class="secondary" href="/monitor">Giám sát 3D</a>
+                </div>
+            </section>
+            <section class="guide-faq-grid">
+                <article class="guide-faq-card">
+                    <h2>Tôi muốn chạy G-code thì làm gì?</h2>
+                    <ol>
+                        <li>Vào Home hoặc Control và xem ô <strong>Trạng thái chạy máy</strong>.</li>
+                        <li>Nếu đang khóa, làm đúng <strong>Bước tiếp theo</strong> mà HMI gợi ý.</li>
+                        <li>Thực hiện <strong>Home &amp; Sync</strong> để đồng bộ máy thật và NX MCD.</li>
+                        <li>Chạy <strong>G-code CHECK</strong>, sau đó phê duyệt nếu an toàn.</li>
+                        <li>Chỉ bấm RUN khi HMI hiện <strong>ĐƯỢC PHÉP CHẠY MÁY</strong>.</li>
+                    </ol>
+                </article>
+                <article class="guide-faq-card">
+                    <h2>Vì sao RUN bị khóa?</h2>
+                    <p>RUN bị khóa khi một điều kiện an toàn chưa đạt. Lý do thường gặp là: chưa Home &amp; Sync, NX MCD chưa xác nhận pose, G-code chưa CHECK đạt, AI/người vận hành chưa phê duyệt, hoặc đang có alarm/collision.</p>
+                </article>
+                <article class="guide-faq-card">
+                    <h2>3D Twin có phải máy thật không?</h2>
+                    <p>Không phải lúc nào cũng là máy thật. Hãy đọc dòng <strong>Đang hiển thị</strong> cạnh 3D:</p>
+                    <ul>
+                        <li><strong>MÁY THẬT</strong>: lấy pose từ FluidNC.</li>
+                        <li><strong>MÔ PHỎNG KIỂM TRA G-CODE</strong>: không phải máy thật, chỉ là trajectory CHECK từ MATLAB/NX.</li>
+                        <li><strong>HIỆU CHUẨN THỦ CÔNG</strong>: chỉ dùng căn chỉnh viewer, không phát lệnh điều khiển.</li>
+                    </ul>
+                </article>
+                <article class="guide-faq-card">
+                    <h2>Khi nào cần Home &amp; Sync lại?</h2>
+                    <ul>
+                        <li>Sau khi FluidNC reset hoặc reconnect.</li>
+                        <li>Sau khi máy homing lại.</li>
+                        <li>Sau khi NX MCD reload model hoặc reset pose.</li>
+                        <li>Khi operator jog máy sau một lần CHECK.</li>
+                        <li>Khi thay đổi work offset hoặc axis mapping.</li>
+                    </ul>
+                </article>
+                <article class="guide-faq-card">
+                    <h2>Khi nào phải Check G-code lại?</h2>
+                    <p>Phải CHECK lại khi sync_epoch thay đổi, máy bị jog sau CHECK, G-code sửa nội dung, work offset thay đổi, hoặc HMI báo kết quả CHECK đã cũ/STALE.</p>
+                </article>
+                <article class="guide-faq-card">
+                    <h2>Tôi là người mới: nên dùng màn hình nào?</h2>
+                    <p>Bắt đầu từ <strong>Home</strong>. Chỉ làm theo ô <strong>Bước tiếp theo</strong>. Khi được phép chạy, chuyển sang <strong>Control</strong>. Khi cần theo dõi chuyển động, mở <strong>Monitor</strong>.</p>
+                </article>
+                <article class="guide-faq-card">
+                    <h2>Tôi là kỹ sư: xem thông tin debug ở đâu?</h2>
+                    <p>Bấm <strong>Engineer</strong> trên Home/Monitor/Control để mở chi tiết kỹ thuật như sync_epoch_id, control_owner, source raw và CHECK state.</p>
+                </article>
+                <article class="guide-faq-card">
+                    <h2>Ctrl+ làm chữ to lên thì dùng được không?</h2>
+                    <p>Có. HMI V5 dùng layout tự wrap, nút tối thiểu 44px và cỡ chữ vận hành tối thiểu 13px. Khi màn hình hẹp, AI panel có thể ẩn để ưu tiên vùng vận hành.</p>
+                </article>
+            
+                <article class="guide-faq-card operator-technical-only">
+                    <h2>Thuật ngữ kỹ thuật cho Engineer</h2>
+                    <p><strong>RUN PERMISSION = READY</strong> nghĩa là Run Gate đã mở quyền chạy. <strong>SYNC = MACHINE_NX_SYNCED</strong> nghĩa là máy thật và NX MCD đã đồng bộ. Nguồn <strong>matlab_check</strong> là mô phỏng kiểm tra; <strong>stream_fluidnc</strong> là pose máy thật. Theo ISA-101, 3D Twin là lớp hiển thị read-only, không phát lệnh điều khiển trực tiếp.</p>
+                </article>
+</section>
+        </section>
+
+</main>
+</div>
+<script type="module" src="/static/js/hmi_core.js"></script>
+</body>
+</html>
